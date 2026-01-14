@@ -4,8 +4,10 @@ import { useAuth } from '../../AuthContext';
 
 export default function AdminLogin({ isOpen, onClose }) {
   const [username, setUsername] = useState('');
+  const [type, setUsertype] = useState('admin');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
   const { login, loading } = useAuth();
 
@@ -34,13 +36,17 @@ export default function AdminLogin({ isOpen, onClose }) {
     e.preventDefault();
     if (username && password) {
       setIsLoading(true);
+      setError('');
 
       try {
-        const user = await login({ username, password });
+        const user = await login({ username, password, type });
         setIsLoading(false);
         onClose();
         navigate('/admin/dashboard');
-      } catch (error) {}
+      } catch (error) {
+        setIsLoading(false);
+        setError(error.detail || error.message || 'Invalid credentials');
+      }
     }
   };
 
@@ -111,6 +117,12 @@ export default function AdminLogin({ isOpen, onClose }) {
             Enter your credentials to continue
           </p>
         </div>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Username Field */}

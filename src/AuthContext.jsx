@@ -46,19 +46,40 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
-      const formData = new FormData();
-      formData.append('username', credentials.username);
-      formData.append('password', credentials.password);
+      const payload = {};
+      payload.identifier = credentials.username;
+      payload.password = credentials.password;
+      payload.type = credentials.type;
+
       const response = await fetch(apiUrl + '/api/login', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       });
+
       const data = await response.json();
-      console.log('data', data);
-      setUser(data.data);
-      localStorage.setItem('auth', JSON.stringify(data.data));
-      return data.data;
-    } catch (e) {}
+      console.log('Login response:', data);
+
+      if (!response.ok || !data.data || !data.data.access_token) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      // Store complete auth data with token
+      const authData = {
+        ...data.data,
+        access_token: data.data.access_token,
+      };
+
+      setUser(authData);
+      localStorage.setItem('auth', JSON.stringify(authData));
+
+      return authData;
+    } catch (e) {
+      console.error('Login error:', e);
+      throw new Error(e.message || 'Login failed. Please try again.');
+    }
   };
 
   const logout = () => {

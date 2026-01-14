@@ -56,6 +56,24 @@ const AuthenticatedRoute = ({ children }) => {
     );
   }
 
+  const inAdmin = window.location.pathname.startsWith('/admin');
+  if (inAdmin) {
+    console.log('user', user);
+    // Check if user is admin or staff, otherwise redirect to student dashboard
+    if (user && (user.user.role === 'admin' || user.user.role === 'staff')) {
+      return children;
+    } else if (user) {
+      return <Navigate to="/student/dashboard" replace />;
+    } else {
+      return <Navigate to="/admin/login" replace />;
+    }
+  } else {
+    // if role is admin or staff, redirect to admin dashboard
+    if (user && (user.user.role === 'admin' || user.user.role === 'staff')) {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+  }
+
   return user ? children : <Navigate to="/" replace />;
 };
 

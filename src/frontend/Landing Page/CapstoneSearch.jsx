@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from './Navbar';
 import V9Gradient from '../../assets/images/V9.svg';
 let abortController = new AbortController();
 
 export default function CapstoneSearch() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
@@ -11,10 +14,48 @@ export default function CapstoneSearch() {
   const [isGeneratingSummary, setGeneratingSummary] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 30;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalResults, setTotalResults] = useState(0);
+  const totalPages = Math.ceil(totalResults / itemsPerPage);
   const apiUrl = 'http://localhost:8000';
 
   const hasResults = searchQuery.trim() !== '' && searchResults.length > 0;
+
+  // Check for search query in URL on mount
+  useEffect(() => {
+    const queryParam = searchParams.get('q');
+    if (queryParam) {
+      setSearchQuery(queryParam);
+      setShowResults(true);
+      // Trigger search with the query from URL
+      setTimeout(() => {
+        performSearch(queryParam, 1);
+        generateSummary(queryParam);
+      }, 100);
+    }
+  }, []);
+
+  async function performSearch(query, page = 1) {
+    try {
+      const res = await fetch(
+        apiUrl +
+          `/api/search?q=${encodeURIComponent(
+            query
+          )}&page=${page}&limit=${itemsPerPage}`,
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      const data = await res.json();
+      setSearchResults(data.results ?? []);
+      setTotalResults(data.total ?? 0);
+    } catch (e) {
+      setSearchResults([]);
+      setTotalResults(0);
+    }
+  }
 
   async function generateSummary(text = '') {
     try {
@@ -40,10 +81,13 @@ export default function CapstoneSearch() {
     }
   }
 
-  async function searchCapstones(search = '') {
+  async function searchCapstones(page = 1) {
     try {
       const res = await fetch(
-        apiUrl + `/api/search?q=${encodeURIComponent(searchQuery)}`,
+        apiUrl +
+          `/api/search?q=${encodeURIComponent(
+            searchQuery
+          )}&page=${page}&limit=${itemsPerPage}`,
         {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
@@ -52,8 +96,10 @@ export default function CapstoneSearch() {
 
       const data = await res.json();
       setSearchResults(data.results ?? []);
+      setTotalResults(data.total ?? 0);
     } catch (e) {
       setSearchResults([]);
+      setTotalResults(0);
     }
   }
 
@@ -61,11 +107,13 @@ export default function CapstoneSearch() {
     e.preventDefault();
     if (searchQuery.trim()) {
       setIsLoading(true);
+      setCurrentPage(1);
+      // Update URL with search query
+      navigate(`?q=${encodeURIComponent(searchQuery)}`);
       setTimeout(async () => {
-        await searchCapstones(searchQuery);
+        await searchCapstones(1);
         setIsLoading(false);
         setShowResults(true);
-        setCurrentPage(1);
         await generateSummary(searchQuery);
       }, 100);
     }
@@ -86,12 +134,14 @@ export default function CapstoneSearch() {
     e.preventDefault();
     if (searchQuery.trim()) {
       setIsLoading(true);
+      setCurrentPage(1);
       abortController.abort();
       abortController = new AbortController();
-      await searchCapstones(searchQuery);
+      // Update URL with search query
+      navigate(`?q=${encodeURIComponent(searchQuery)}`);
+      await searchCapstones(1);
       setIsLoading(false);
       setShowResults(true);
-      setCurrentPage(1);
       await generateSummary(searchQuery);
     }
   }
@@ -368,8 +418,9 @@ export default function CapstoneSearch() {
 
                   searchResults.map((card, index) => (
                     <article
-                      key={index}
-                      className="rounded-xl bg-gray-50 p-6 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-card"
+                      key={card.project_id}
+                      onClick={() => navigate(`/capstone/${card.project_id}`)}
+                      className="rounded-xl bg-gray-50 p-6 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-card cursor-pointer"
                       style={{ animationDelay: `${index * 0.1}s` }}
                     >
                       {/* Title */}
@@ -439,64 +490,90 @@ export default function CapstoneSearch() {
               </div>
 
               {/* Pagination */}
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(1, prev - 1))
-                  }
-                  disabled={currentPage === 1}
-                  className={`inline-flex items-center justify-center rounded-lg p-2 text-purple-600 hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all ${
-                    currentPage === 1
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:text-purple-700'
-                  }`}
-                  aria-label="Previous page"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="h-5 w-5"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M13.28 5.22a.75.75 0 010 1.06L8.56 11l4.72 4.72a.75.75 0 11-1.06 1.06l-5.25-5.25a.75.75 0 010-1.06l5.25-5.25a.75.75 0 011.06 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-                <span className="text-sm font-semibold text-gray-700">
-                  <span className="text-purple-600">{currentPage}</span> of{' '}
-                  {totalPages}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                  }
-                  disabled={currentPage === totalPages}
-                  className={`inline-flex items-center justify-center rounded-lg p-2 text-purple-600 hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all ${
-                    currentPage === totalPages
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:text-purple-700'
-                  }`}
-                  aria-label="Next page"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="h-5 w-5"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10.72 5.22a.75.75 0 000 1.06L15.44 11l-4.72 4.72a.75.75 0 101.06 1.06l5.25-5.25a.75.75 0 000-1.06l-5.25-5.25a.75.75 0 00-1.06 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">
+                      Items per page:
+                    </label>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => {
+                        setItemsPerPage(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="px-3 py-1 border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 transition focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const prevPage = Math.max(1, currentPage - 1);
+                        setCurrentPage(prevPage);
+                        searchCapstones(prevPage);
+                      }}
+                      disabled={currentPage === 1}
+                      className={`inline-flex items-center justify-center rounded-lg p-2 text-purple-600 hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all ${
+                        currentPage === 1
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:text-purple-700'
+                      }`}
+                      aria-label="Previous page"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="h-5 w-5"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M13.28 5.22a.75.75 0 010 1.06L8.56 11l4.72 4.72a.75.75 0 11-1.06 1.06l-5.25-5.25a.75.75 0 010-1.06l5.25-5.25a.75.75 0 011.06 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <span className="text-sm font-semibold text-gray-700">
+                      <span className="text-purple-600">{currentPage}</span> of{' '}
+                      {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextPage = Math.min(totalPages, currentPage + 1);
+                        setCurrentPage(nextPage);
+                        searchCapstones(nextPage);
+                      }}
+                      disabled={currentPage === totalPages}
+                      className={`inline-flex items-center justify-center rounded-lg p-2 text-purple-600 hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all ${
+                        currentPage === totalPages
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:text-purple-700'
+                      }`}
+                      aria-label="Next page"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="h-5 w-5"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10.72 5.22a.75.75 0 000 1.06L15.44 11l-4.72 4.72a.75.75 0 101.06 1.06l5.25-5.25a.75.75 0 000-1.06l-5.25-5.25a.75.75 0 00-1.06 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 

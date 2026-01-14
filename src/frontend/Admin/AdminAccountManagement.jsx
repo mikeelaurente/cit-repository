@@ -1,393 +1,507 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import V9Gradient from "../../assets/images/V9.svg"
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { apiClient } from '../../api/client';
+import { useAuth } from '../../AuthContext';
 
 export default function AdminAccountManagement() {
-  const navigate = useNavigate()
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [filterType, setFilterType] = useState('All')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [showErrorModal, setShowErrorModal] = useState(false)
-  const [modalMessage, setModalMessage] = useState('')
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [deleteItem, setDeleteItem] = useState(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
-  
-  // Sample data
-  const [admins, setAdmins] = useState([
-    { id: '22-012', fullName: 'John Doe', email: 'example@cbsua.edu.ph', role: 'Admin', status: 'Active' },
-    { id: '23-343', fullName: 'Evan Hansen', email: 'example@cbsua.edu.ph', role: 'Super Administrator', status: 'Active' },
-    { id: '21-342', fullName: 'Rick Morty', email: 'example@cbsua.edu.ph', role: 'Admin', status: 'Inactive' },
-    { id: '24-001', fullName: 'Jane Smith', email: 'jane@cbsua.edu.ph', role: 'Admin', status: 'Active' },
-    { id: '24-002', fullName: 'Mike Johnson', email: 'mike@cbsua.edu.ph', role: 'Admin', status: 'Inactive' },
-    { id: '24-003', fullName: 'Sarah Williams', email: 'sarah@cbsua.edu.ph', role: 'Super Administrator', status: 'Active' },
-  ])
+  const navigate = useNavigate();
+  const { logout, user } = useAuth();
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    total_pages: 0,
+    has_next: false,
+    has_prev: false,
+  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterRole, setFilterRole] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteItem, setDeleteItem] = useState(null);
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [debounceTimer, setDebounceTimer] = useState(null);
 
   const [formData, setFormData] = useState({
     id: '',
-    fullName: '',
+    full_name: '',
     email: '',
-    role: '',
+    role: 'Admin',
     password: '',
-    confirmPassword: ''
-  })
+    confirm_password: '',
+  });
 
-  const itemsPerPage = 5
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
-    useEffect(() => {
-    // Add shimmer animation styles
-    const style = document.createElement('style')
-    style.textContent = `
-      @keyframes shimmer {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(100%); }
-      }
-      .animate-shimmer {
-        animation: shimmer 2s infinite;
-      }
-      @keyframes slide-in {
-        from {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
-      }
-      .animate-slide-in {
-        animation: slide-in 0.3s ease-out;
-      }
-    `
-    document.head.appendChild(style)
-
-    // Simulate data loading
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 1500)
-
-    return () => {
-      clearTimeout(timer)
-      document.head.removeChild(style)
-    }
-  }, [])
-
-  const handleAdd = () => {
-    setFormData({ id: '', fullName: '', email: '', role: '', password: '', confirmPassword: '' })
-    setIsModalOpen(true)
-  }
-
-  // Check if form has input data
-  const hasInputData = () => {
-    return formData.fullName || formData.email || formData.role || formData.password || formData.confirmPassword
-  }
-
-  const handleModalClose = () => {
-    if (hasInputData()) {
-      return // Prevent closing if there's input data
-    }
-    setIsModalOpen(false)
-    setFormData({ id: '', fullName: '', email: '', role: '', password: '', confirmPassword: '' })
-  }
-
-  const handleEdit = (admin) => {
-    setFormData({ ...admin, password: '', confirmPassword: '' })
-    setIsModalOpen(true)
-  }
-
-  const handleDelete = (id) => {
-    const admin = admins.find(a => a.id === id)
-    setDeleteItem({ id, name: admin?.fullName || 'this admin account', type: 'admin' })
-    setIsDeleteModalOpen(true)
-  }
-
-  const confirmDelete = () => {
-    if (deleteItem) {
-      setIsRefreshing(true)
-      setIsDeleteModalOpen(false)
-      setDeleteItem(null)
-      
-      // Simulate delete operation with skeleton loading
-      setTimeout(() => {
-        setAdmins(admins.filter(a => a.id !== deleteItem.id))
-        setIsRefreshing(false)
-        setModalMessage('Admin account deleted successfully!')
-        setShowSuccessModal(true)
-        setTimeout(() => setShowSuccessModal(false), 3000)
-      }, 1000)
-    }
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    try {
-      if (!formData.id && formData.password !== formData.confirmPassword) {
-        setModalMessage('Passwords do not match!')
-        setShowErrorModal(true)
-        setTimeout(() => setShowErrorModal(false), 3000)
-        return
-      }
-      
-      setIsRefreshing(true)
-      setIsModalOpen(false)
-      
-      // Simulate save operation with skeleton loading
-      setTimeout(() => {
-        if (formData.id) {
-          // Edit existing
-          setAdmins(admins.map(a => a.id === formData.id ? { ...formData, status: a.status } : a))
-          setModalMessage('Admin account updated successfully!')
-        } else {
-          // Add new
-          const newId = `24-${String(admins.length + 1).padStart(3, '0')}`
-          setAdmins([...admins, { ...formData, id: newId, status: 'Active' }])
-          setModalMessage('Admin account added successfully!')
-        }
-        setFormData({ id: '', fullName: '', email: '', role: '', password: '', confirmPassword: '' })
-        setIsRefreshing(false)
-        setShowSuccessModal(true)
-        setTimeout(() => setShowSuccessModal(false), 3000)
-      }, 1000)
-    } catch (error) {
-      setIsRefreshing(false)
-      setModalMessage('Failed to save admin account. Please try again.')
-      setShowErrorModal(true)
-      setTimeout(() => setShowErrorModal(false), 3000)
-    }
-  }
-
-  const filteredAdmins = admins.filter(admin => {
-    const matchesFilter = filterType === 'All' || admin.status === filterType
-    const matchesSearch = !searchQuery || 
-      admin.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      admin.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      admin.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      admin.role.toLowerCase().includes(searchQuery.toLowerCase())
-
-    return matchesFilter && matchesSearch
-  })
-
-  const totalFilteredPages = Math.ceil(filteredAdmins.length / itemsPerPage) || 1
-  const paginatedAdmins = filteredAdmins.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  )
-
-  // Reset to page 1 when filters change
+  // Check if user is admin
   useEffect(() => {
-    if (currentPage > totalFilteredPages && totalFilteredPages > 0) {
-      setCurrentPage(1)
+    if (user && user.user?.role !== 'admin') {
+      navigate('/admin/dashboard');
     }
-  }, [totalFilteredPages, currentPage])
+  }, [user, navigate]);
 
-  // Skeleton Components
-  const SkeletonShimmer = ({ className = "" }) => (
-    <div className={`relative overflow-hidden ${className}`}>
-      <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent"></div>
-    </div>
-  )
+  useEffect(() => {
+    fetchUsers(1, filterRole, searchQuery);
+  }, []);
 
-  const SkeletonRow = () => (
-    <tr className="border-b border-gray-100">
-      {[1, 2, 3, 4, 5, 6].map((num) => (
-        <td key={num} className="py-3 px-4">
-          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded relative overflow-hidden">
-            <SkeletonShimmer />
-          </div>
-        </td>
-      ))}
-    </tr>
-  )
+  useEffect(() => {
+    if (debounceTimer) clearTimeout(debounceTimer);
 
-  const SkeletonControls = () => (
-    <div className="flex flex-wrap items-center gap-4 mb-6">
-      <div className="flex items-center gap-3">
-        <div className="h-4 w-12 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded relative overflow-hidden">
-          <SkeletonShimmer />
-        </div>
-        <div className="h-10 w-24 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg relative overflow-hidden">
-          <SkeletonShimmer />
-        </div>
-      </div>
-      <div className="ml-auto flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg relative overflow-hidden">
-          <SkeletonShimmer />
-        </div>
-        <div className="h-10 w-64 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg relative overflow-hidden">
-          <SkeletonShimmer />
-        </div>
-      </div>
-    </div>
-  )
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+      fetchUsers(1, filterRole, searchQuery);
+    }, 500); // 500ms debounce
+
+    setDebounceTimer(timer);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    fetchUsers(1, filterRole, searchQuery);
+  }, [filterRole]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    fetchUsers(1, filterRole, searchQuery);
+  }, [itemsPerPage]);
+
+  const fetchUsers = async (page = 1, role = 'All', search = '') => {
+    setLoading(true);
+    try {
+      const response = await apiClient.getAdminUsers({
+        page,
+        limit: itemsPerPage,
+        role,
+        search,
+      });
+
+      if (response.status === 'success') {
+        setUsers(response.users || []);
+        if (response.pagination) {
+          setPagination(response.pagination);
+          setCurrentPage(response.pagination.page);
+        }
+      } else {
+        showError('Failed to load users');
+      }
+    } catch (err) {
+      showError('An error occurred while loading users');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showError = (message) => {
+    setModalMessage(message);
+    setShowErrorModal(true);
+    setTimeout(() => setShowErrorModal(false), 3000);
+  };
+
+  const showSuccess = (message) => {
+    setModalMessage(message);
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 3000);
+  };
+
+  const handleOpenModal = () => {
+    setIsEditMode(false);
+    setFormData({
+      id: '',
+      full_name: '',
+      email: '',
+      role: 'Admin',
+      password: '',
+      confirm_password: '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleEditUser = (user) => {
+    setIsEditMode(true);
+    setFormData({
+      id: user.id,
+      full_name: user.student?.full_name || user.full_name || '',
+      email: user.email || '',
+      role: user.role || 'Admin',
+      password: '',
+      confirm_password: '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const validateForm = () => {
+    if (!formData.full_name.trim()) {
+      showError('Full Name is required');
+      return false;
+    }
+    if (!formData.email.trim()) {
+      showError('Email is required');
+      return false;
+    }
+    if (!isEditMode && !formData.password) {
+      showError('Password is required for new users');
+      return false;
+    }
+    if (!isEditMode && formData.password.length < 8) {
+      showError('Password must be at least 8 characters');
+      return false;
+    }
+    if (formData.password && formData.password !== formData.confirm_password) {
+      showError('Passwords do not match');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmitForm = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setFormSubmitting(true);
+    try {
+      const data = {
+        full_name: formData.full_name,
+        email: formData.email,
+        role: formData.role,
+      };
+
+      if (formData.password) {
+        data.password = formData.password;
+        data.confirm_password = formData.confirm_password;
+      }
+
+      let response;
+      if (isEditMode) {
+        response = await apiClient.updateUser(formData.id, data);
+      } else {
+        response = await apiClient.createUser(data);
+      }
+
+      if (response.status === 'success') {
+        showSuccess(
+          isEditMode
+            ? 'User updated successfully!'
+            : 'User created successfully!'
+        );
+        setIsModalOpen(false);
+        fetchUsers();
+      } else {
+        showError(response.message || 'Operation failed');
+      }
+    } catch (err) {
+      showError('An error occurred while saving the user');
+      console.error(err);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  const handleDeleteClick = (user) => {
+    setDeleteItem(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteItem) return;
+
+    setFormSubmitting(true);
+    try {
+      const response = await apiClient.deleteUser(deleteItem.id);
+      if (response.status === 'success') {
+        showSuccess('User deleted successfully!');
+        setIsDeleteModalOpen(false);
+        setDeleteItem(null);
+        fetchUsers();
+      } else {
+        showError(response.message || 'Failed to delete user');
+      }
+    } catch (err) {
+      showError('An error occurred while deleting the user');
+      console.error(err);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  const paginatedUsers = users;
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
       <aside className="w-20 bg-purple-900 flex flex-col items-center py-6 gap-6 h-screen fixed left-0 top-0 overflow-hidden">
         {/* Dashboard Icon */}
-        <div 
-          onClick={() => navigate('/admin/dashboard')}
+        <div
+          onClick={() => navigate('/admin')}
           className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+            />
           </svg>
         </div>
 
         {/* Document Icon */}
-        <div 
+        <div
           onClick={() => navigate('/admin/capstone-projects')}
           className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
         </div>
 
-        {/* Users/People Icon */}
-        <div 
-          onClick={() => navigate('/admin/account-management')}
-          className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors bg-purple-800"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-        </div>
-
-        {/* User Settings Icon */}
-        <div className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors relative">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          <svg className="w-3 h-3 absolute bottom-0 right-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </div>
+        {/* Users/People Icon - Active - Only show for Admin */}
+        {user?.user?.role === 'admin' && (
+          <div className="w-8 h-8 flex items-center justify-center text-white cursor-pointer bg-purple-800 rounded-lg transition-colors">
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+              />
+            </svg>
+          </div>
+        )}
 
         {/* Logout Icon */}
-        <div className="mt-auto w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors" onClick={() => setIsLogoutModalOpen(true)}>
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        <div
+          className="mt-auto w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors"
+          onClick={() => setIsLogoutModalOpen(true)}
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            />
           </svg>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 ml-20">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800">Admin Account</span>{' '}
-            <span className="text-gray-900">Management</span>
-          </h1>
-        </div>
+      <main className="flex-1 ml-20 p-8">
+        <div className="px-6 py-8 max-w-7xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-gray-900">
+              Account Management
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Manage user accounts and permissions
+            </p>
+          </div>
 
-        {/* Controls and Table Container */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          {/* Filters and Search */}
-          {isLoading ? (
-            <SkeletonControls />
-          ) : (
-            <div className="flex flex-wrap items-center gap-4 mb-6">
-              {/* Filters */}
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-gray-700">Filter:</label>
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="All">All</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </div>
-
-              {/* Add Button and Search */}
-              <div className="ml-auto flex items-center gap-3">
+          {showErrorModal && (
+            <div className="fixed inset-0 z-50 bg-gray-600/50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm">
+                <p className="text-gray-900 font-medium">{modalMessage}</p>
                 <button
-                  onClick={handleAdd}
-                  className="w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center transition-colors shadow-md hover:shadow-lg"
+                  onClick={() => setShowErrorModal(false)}
+                  className="mt-4 w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+                  Close
                 </button>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search users..."
-                    className="pl-4 pr-10 py-2 border border-gray-300 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                  <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
               </div>
             </div>
           )}
 
-          {/* Table */}
+          {showSuccessModal && (
+            <div className="fixed inset-0 z-50 bg-gray-600/50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm">
+                <p className="text-gray-900 font-medium">{modalMessage}</p>
+                <button
+                  onClick={() => setShowSuccessModal(false)}
+                  className="mt-4 w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-lg shadow-md">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center flex-wrap gap-4">
+                <div className="flex gap-4 items-center flex-wrap">
+                  <select
+                    value={filterRole}
+                    onChange={(e) => setFilterRole(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="All">All Roles</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Staff">Staff</option>
+                    <option value="Student">Student</option>
+                  </select>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by name or email..."
+                      className="pl-4 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 hover:border-gray-400 transition"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleOpenModal}
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center gap-2 font-medium shadow-md"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  Add User
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Admin ID</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Full Name</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Role</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Action</th>
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                    Name
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                    Email
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                    Role
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody>
-                {isLoading || isRefreshing ? (
-                  <>
-                    <SkeletonRow />
-                    <SkeletonRow />
-                    <SkeletonRow />
-                    <SkeletonRow />
-                    <SkeletonRow />
-                  </>
+              <tbody className="divide-y divide-gray-200">
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan="5"
+                      className="px-6 py-8 text-center text-gray-500"
+                    >
+                      Loading users...
+                    </td>
+                  </tr>
+                ) : users.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan="5"
+                      className="px-6 py-8 text-center text-gray-500"
+                    >
+                      No users found
+                    </td>
+                  </tr>
                 ) : (
-                  paginatedAdmins.map((admin) => (
-                    <tr key={admin.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4 text-sm text-gray-900">{admin.id}</td>
-                      <td className="py-3 px-4 text-sm text-gray-900">{admin.fullName}</td>
-                      <td className="py-3 px-4 text-sm text-gray-700">{admin.email}</td>
-                      <td className="py-3 px-4 text-sm text-gray-700">{admin.role}</td>
-                      <td className="py-3 px-4 text-sm">
-                        <span className={admin.status === 'Active' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                          {admin.status}
+                  users.map((user) => (
+                    <tr
+                      key={user.id}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-6 py-4 text-sm text-gray-900 font-medium">
+                        {user.student?.full_name || user.full_name || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {user.email}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {user.role}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <span
+                          className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                            user.status === 'Active'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}
+                        >
+                          {user.status || 'Inactive'}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
+                      <td className="px-6 py-4 text-sm">
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => handleEdit(admin)}
-                            className="text-purple-600 hover:text-purple-700 transition-colors"
+                            onClick={() => handleEditUser(user)}
+                            className="inline-flex items-center px-3 py-1 text-xs font-medium bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 transition-colors"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
+                            Edit
                           </button>
                           <button
-                            onClick={() => handleDelete(admin.id)}
-                            className="text-red-500 hover:text-red-600 transition-colors"
+                            onClick={() => handleDeleteClick(user)}
+                            className="inline-flex items-center px-3 py-1 text-xs font-medium bg-red-50 text-red-700 rounded hover:bg-red-100 transition-colors"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            Delete
                           </button>
                         </div>
                       </td>
@@ -398,181 +512,168 @@ export default function AdminAccountManagement() {
             </table>
           </div>
 
-          {/* Pagination */}
-          {!isLoading && (
-            <div className="flex items-center justify-center mt-6 gap-2">
+          <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-gray-600">
+                Page {pagination.page} of {pagination.total_pages}
+              </p>
+              <div className="flex items-center gap-2">
+                <label htmlFor="itemsPerPage" className="text-sm text-gray-600">
+                  Items per page:
+                </label>
+                <select
+                  id="itemsPerPage"
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="px-3 py-1 border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2">
               <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-purple-600 hover:text-purple-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                onClick={() =>
+                  fetchUsers(pagination.page - 1, filterRole, searchQuery)
+                }
+                disabled={!pagination.has_prev}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
+                Previous
               </button>
-              <span className="text-sm text-gray-700 px-4">
-                {currentPage} of {totalFilteredPages}
-              </span>
               <button
-                onClick={() => setCurrentPage(prev => Math.min(totalFilteredPages, prev + 1))}
-                disabled={currentPage >= totalFilteredPages}
-                className="p-2 text-purple-600 hover:text-purple-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                onClick={() =>
+                  fetchUsers(pagination.page + 1, filterRole, searchQuery)
+                }
+                disabled={!pagination.has_next}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                Next
               </button>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Add/Edit Modal */}
         {isModalOpen && (
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={handleModalClose}
-          >
-            <div 
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {formData.id ? 'Edit' : 'Add'} admin account
-                </h2>
-                <button
-                  onClick={handleModalClose}
-                  disabled={hasInputData()}
-                  className={`text-gray-400 hover:text-gray-600 transition-colors ${hasInputData() ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+          <div className="fixed inset-0 z-50 bg-gray-600/50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                {isEditMode
+                  ? `Edit ${formData.role} Account`
+                  : 'Add Admin Account'}
+              </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmitForm} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name <span className="text-red-500">*</span>
+                    Full Name *
                   </label>
                   <input
                     type="text"
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter Full Name"
+                    name="full_name"
+                    value={formData.full_name}
+                    onChange={handleFormChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email <span className="text-red-500">*</span>
+                    Email *
                   </label>
                   <input
                     type="email"
+                    name="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter Email"
+                    onChange={handleFormChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Role <span className="text-red-500">*</span>
+                    Role *
                   </label>
                   <select
+                    name="role"
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    onChange={handleFormChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     required
                   >
-                    <option value="">Select</option>
                     <option value="Admin">Admin</option>
-                    <option value="Super Administrator">Super Administrator</option>
+                    <option value="Staff">Staff</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password {!formData.id && <span className="text-red-500">*</span>}
+                    Password {!isEditMode && '*'}
                   </label>
                   <div className="relative">
                     <input
-                      type={showPassword ? "text" : "password"}
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
                       value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Enter password"
-                      required={!formData.id}
+                      onChange={handleFormChange}
+                      className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      required={!isEditMode}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
                     >
-                      {showPassword ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      )}
+                      {showPassword ? '👁' : '👁‍🗨'}
                     </button>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirm Password {!formData.id && <span className="text-red-500">*</span>}
+                    Confirm Password {!isEditMode && '*'}
                   </label>
                   <div className="relative">
                     <input
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={formData.confirmPassword}
-                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                      className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Confirm password"
-                      required={!formData.id}
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      name="confirm_password"
+                      value={formData.confirm_password}
+                      onChange={handleFormChange}
+                      className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      required={!isEditMode}
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
                     >
-                      {showConfirmPassword ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      )}
+                      {showConfirmPassword ? '👁' : '👁‍🗨'}
                     </button>
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4">
+                <div className="flex gap-3 pt-4">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+                    disabled={formSubmitting}
+                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50"
                   >
-                    Save
+                    {formSubmitting ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               </form>
@@ -580,183 +681,95 @@ export default function AdminAccountManagement() {
           </div>
         )}
 
-        {/* Logout Confirmation Modal */}
-        {isLogoutModalOpen && (
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={() => setIsLogoutModalOpen(false)}
-          >
-            <div 
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 text-center mb-2">Confirm Logout</h2>
-              <p className="text-gray-600 text-center mb-6">Are you sure you want to logout?</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setIsLogoutModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setIsLoggingOut(true)
-                    setIsLogoutModalOpen(false)
-                    setTimeout(() => {
-                      navigate('/')
-                    }, 1500)
-                  }}
-                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Success Modal */}
-        {showSuccessModal && (
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={() => setShowSuccessModal(false)}
-          >
-            <div 
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 text-center mb-2">Success</h2>
-              <p className="text-gray-600 text-center mb-6">{modalMessage}</p>
-              <button
-                onClick={() => setShowSuccessModal(false)}
-                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Error Modal */}
-        {showErrorModal && (
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={() => setShowErrorModal(false)}
-          >
-            <div 
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 text-center mb-2">Error</h2>
-              <p className="text-gray-600 text-center mb-6">{modalMessage}</p>
-              <button
-                onClick={() => setShowErrorModal(false)}
-                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Delete Confirmation Modal */}
-        {isDeleteModalOpen && (
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={() => {
-              setIsDeleteModalOpen(false)
-              setDeleteItem(null)
-            }}
-          >
-            <div 
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center border-2 border-red-300">
-                  <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Confirm Delete</h2>
-              <p className="text-gray-600 text-center mb-6">Are you sure you want to delete <strong>{deleteItem?.name}</strong>? This action cannot be undone.</p>
+        {isDeleteModalOpen && deleteItem && (
+          <div className="fixed inset-0 z-50 bg-gray-600/50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Delete User
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete {deleteItem.full_name}? This
+                action cannot be undone.
+              </p>
+
               <div className="flex gap-3">
                 <button
-                  onClick={() => {
-                    setIsDeleteModalOpen(false)
-                    setDeleteItem(null)
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={confirmDelete}
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                  onClick={handleConfirmDelete}
+                  disabled={formSubmitting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50"
                 >
-                  Delete
+                  {formSubmitting ? 'Deleting...' : 'Delete'}
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Logout Loading Overlay */}
-        {isLoggingOut && (
-          <div className="fixed inset-0 z-[60] min-h-screen flex items-center justify-center">
-            <div className="absolute inset-0 bg-white" aria-hidden />
-            <div 
-              className="absolute inset-0 opacity-100" 
-              style={{ 
-                backgroundImage: `url(${V9Gradient})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
-              }} 
-              aria-hidden 
-            />
-            <div className="relative z-10 text-center">
-              <div className="inline-flex flex-col items-center gap-4">
-                <div className="relative">
-                  <svg className="animate-spin h-12 w-12 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <div className="absolute inset-0 rounded-full bg-purple-600/20 blur-xl"></div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent block">Logging out...</span>
-                  <span className="text-sm text-gray-500 block">Redirecting to landing page</span>
-                </div>
               </div>
             </div>
           </div>
         )}
       </main>
-    </div>
-  )
-}
 
+      {/* Logout Confirmation Modal */}
+      {isLogoutModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          onClick={() => setIsLogoutModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-purple-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 text-center mb-2">
+              Confirm Logout
+            </h2>
+            <p className="text-gray-600 text-center mb-6">
+              Are you sure you want to logout?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsLogoutModalOpen(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setIsLoggingOut(true);
+                  setIsLogoutModalOpen(false);
+                  setTimeout(() => {
+                    logout();
+                    navigate('/');
+                  }, 1500);
+                }}
+                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

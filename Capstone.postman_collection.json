@@ -1,0 +1,1356 @@
+{
+	"info": {
+		"_postman_id": "98f01f2e-bf37-4b06-b35d-08bd31c91313",
+		"name": "Capstone",
+		"description": "### Welcome to Postman! This is your first collection. \n\nCollections are your starting point for building and testing APIs. You can use this one to:\n\n• Group related requests\n• Test your API in real-world scenarios\n• Document and share your requests\n\nUpdate the name and overview whenever you’re ready to make it yours.\n\n[Learn more about Postman Collections.](https://learning.postman.com/docs/collections/collections-overview/)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "49755336",
+		"_collection_link": "https://mikeelaurente9-9012678.postman.co/workspace/Mikee-Laurente's-Workspace~4aaae5fb-f52b-49b2-84a4-062995aa418f/collection/49755336-98f01f2e-bf37-4b06-b35d-08bd31c91313?action=share&source=collection_link&creator=49755336"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Student",
+					"item": [
+						{
+							"name": "Login",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const accessToken = pm.response.json().data.access_token;",
+											"",
+											"pm.test(\"Access token is present\", function () {",
+											"    pm.expect(accessToken).to.not.be.null;",
+											"});",
+											"",
+											"pm.environment.set(\"student_token\", accessToken)"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"identifier\": \"johndoe@cbsua.edu.ph\",\r\n    \"password\": \"P@ssw0rd\",\r\n    \"type\": \"student\"\r\n}"
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/login",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"login"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Forgot Password",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"email\": \"johndoe@cbsua.edu.ph\"\r\n}"
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/student/forgot-password",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"student",
+										"forgot-password"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Reset Password",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"token\": \"u3Ab815olWINlcOBbMAQaFlS2P8TFeym\",\r\n    \"new_password\": \"P@ssword*\",\r\n    \"confirm_password\": \"P@ssword*\"\r\n}"
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/student/reset-password",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"student",
+										"reset-password"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Verify",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"email\": \"johndoe@cbsua.edu.ph\",\r\n    \"code\": \"829567\"\r\n}"
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/student/verify",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"student",
+										"verify"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Resend Verification Code",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"email\": \"johndoe1@cbsua.edu.ph\"\r\n}"
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/student/resend-code",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"student",
+										"resend-code"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Signup",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"full_name\": \"John Doe\",\r\n    \"student_number\": \"IT0001\",\r\n    \"email\": \"johndoe@cbsua.edu.ph\",\r\n    \"year\": \"3\",\r\n    \"password\": \"P@ssw0rd\"\r\n}"
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/student/signup",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"student",
+										"signup"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Admin",
+					"item": [
+						{
+							"name": "Login",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const accessToken = pm.response.json().data.access_token;",
+											"",
+											"pm.test(\"Access token is present\", function () {",
+											"    pm.expect(accessToken).to.not.be.null;",
+											"});",
+											"",
+											"pm.environment.set(\"admin_token\", accessToken)"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"identifier\": \"admin@cit.edu\",\r\n    \"password\": \"admin123\",\r\n    \"type\": \"admin\"\r\n}"
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/login",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"login"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Staff",
+					"item": [
+						{
+							"name": "Login",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const accessToken = pm.response.json().data.access_token;",
+											"",
+											"pm.test(\"Access token is present\", function () {",
+											"    pm.expect(accessToken).to.not.be.null;",
+											"});",
+											"",
+											"pm.environment.set(\"staff_token\", accessToken)"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"identifier\": \"staff@cit.edu\",\r\n    \"password\": \"staff123\",\r\n    \"type\": \"staff\"\r\n}"
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/login",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"login"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Student",
+			"item": [
+				{
+					"name": "Get All Capstones",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{apiUrl}}/api/student/capstones",
+							"host": [
+								"{{apiUrl}}"
+							],
+							"path": [
+								"api",
+								"student",
+								"capstones"
+							]
+						},
+						"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Capstone",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{apiUrl}}/api/student/capstones/1",
+							"host": [
+								"{{apiUrl}}"
+							],
+							"path": [
+								"api",
+								"student",
+								"capstones",
+								"1"
+							]
+						},
+						"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Capstone Citations",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{apiUrl}}/api/student/capstones/1/citations",
+							"host": [
+								"{{apiUrl}}"
+							],
+							"path": [
+								"api",
+								"student",
+								"capstones",
+								"1",
+								"citations"
+							]
+						},
+						"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Capstone Document",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Successful POST request\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/C:/Users/Mikee/Desktop/Student-Capstone.docx"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{apiUrl}}/api/student/upload-capstone",
+							"host": [
+								"{{apiUrl}}"
+							],
+							"path": [
+								"api",
+								"student",
+								"upload-capstone"
+							]
+						},
+						"description": "This is a POST request, submitting data to an API via the request body. This request submits JSON data, and the data is reflected in the response.\n\nA successful POST request typically returns a `200 OK` or `201 Created` response code."
+					},
+					"response": []
+				}
+			],
+			"auth": {
+				"type": "bearer",
+				"bearer": [
+					{
+						"key": "token",
+						"value": "{{student_token}}",
+						"type": "string"
+					}
+				]
+			},
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {},
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {},
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "Capstones",
+					"item": [
+						{
+							"name": "Get All Capstones",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{apiUrl}}/api/admin/capstones",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"capstones"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Upload Capstones",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Successful POST request\", function () {",
+											"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+											"});",
+											""
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"type": "file",
+											"src": "/C:/Users/Mikee/Desktop/2017.docx"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/admin/capstones/upload",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"capstones",
+										"upload"
+									]
+								},
+								"description": "This is a POST request, submitting data to an API via the request body. This request submits JSON data, and the data is reflected in the response.\n\nA successful POST request typically returns a `200 OK` or `201 Created` response code."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Capstone",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n\"title\": \"SMS EQUIPPED STUDENT MONITORING SYSTEM\",\r\n\"authors\": \"Fidel M. Paladan, Apple B. Palermo, Jade B. Bonavente, Jessebel L. Bachiller, Wendy M. Enciso\",\r\n\"keywords\": [\"SMS\", \"Attendance\", \"Monitoring system\"],\r\n\"year\": \"2017\",\r\n\"abstract\": \"Nowadays, it could not be denied that the world has been influenced by modern technology. It has dramatically been assisting many people in making their works faster and easier. Their life activities were afforded ease and comfort. King Thomas Learning Academy, the respondents, has been employing the existing traditional attendance system which involved manual monitoring of students' attendance. Monitoring students has been one of the problems of the parents because they had no means to monitor their children after they left their households and thereby was usually apprehensive whether their kids went straight to school, arrived there safely and would go home unharmed.\\nThis study is intended to help the teachers, the registrar, and the staff and also the guard to make the transactions, specifically in monitoring attendance, in the school easier. This system would offer an improvement in the security done by the guard of the school and will provide assurance to the parents regarding their children's safety. To help assist in this concern, the researchers developed a system that would help the school in their monitoring of attendance and put parents' minds at rest when it comes to assurance of their children's safety. This study entitled \\\"SMS Equipped Student Monitoring System\\\" would like to achieve its goal of automating the management and monitoring of attendance and at the same time to effectively disseminate to parent significant information regarding their kids' school activities. Parents as would have a means to be aware and be informed of the time their children arrived and left the school, the schools could have a reliable and safe records of students' attendance and the students themselves could easily be informed once there would be suspension of and classes and other information such as announcements, reminders and upcoming activities and events.\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/admin/capstones/manual",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"capstones",
+										"manual"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Approve Capstone",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n\"title\": \"SMS EQUIPPED STUDENT MONITORING SYSTEM\",\r\n\"authors\": \"Fidel M. Paladan, Apple B. Palermo, Jade B. Bonavente, Jessebel L. Bachiller, Wendy M. Enciso\",\r\n\"keywords\": [\"SMS\", \"Attendance\", \"Monitoring system\"],\r\n\"year\": \"2017\",\r\n\"abstract\": \"Nowadays, it could not be denied that the world has been influenced by modern technology. It has dramatically been assisting many people in making their works faster and easier. Their life activities were afforded ease and comfort. King Thomas Learning Academy, the respondents, has been employing the existing traditional attendance system which involved manual monitoring of students' attendance. Monitoring students has been one of the problems of the parents because they had no means to monitor their children after they left their households and thereby was usually apprehensive whether their kids went straight to school, arrived there safely and would go home unharmed.\\nThis study is intended to help the teachers, the registrar, and the staff and also the guard to make the transactions, specifically in monitoring attendance, in the school easier. This system would offer an improvement in the security done by the guard of the school and will provide assurance to the parents regarding their children's safety. To help assist in this concern, the researchers developed a system that would help the school in their monitoring of attendance and put parents' minds at rest when it comes to assurance of their children's safety. This study entitled \\\"SMS Equipped Student Monitoring System\\\" would like to achieve its goal of automating the management and monitoring of attendance and at the same time to effectively disseminate to parent significant information regarding their kids' school activities. Parents as would have a means to be aware and be informed of the time their children arrived and left the school, the schools could have a reliable and safe records of students' attendance and the students themselves could easily be informed once there would be suspension of and classes and other information such as announcements, reminders and upcoming activities and events.\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/admin/capstones/manual",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"capstones",
+										"manual"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Reject Capstone",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"note\": \"Rejected\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/admin/capstones/2/reject",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"capstones",
+										"2",
+										"reject"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Revert to Pending",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"note\": \"Mali\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/admin/capstones/2/revert-to-pending",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"capstones",
+										"2",
+										"revert-to-pending"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Capstone",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n\"title\": \"SMS EQUIPPED STUDENT MONITORING SYSTEM UPDATED\",\r\n\"authors\": \"Fidel M. Paladan, Apple B. Palermo, Jade B. Bonavente, Jessebel L. Bachiller, Wendy M. Enciso\",\r\n\"keywords\": [\"SMS\", \"Attendance\", \"Monitoring system\"],\r\n\"year\": \"2017\",\r\n\"abstract\": \"Nowadays and maybe then, it could not be denied that the world has been influenced by modern technology. It has dramatically been assisting many people in making their works faster and easier. Their life activities were afforded ease and comfort. King Thomas Learning Academy, the respondents, has been employing the existing traditional attendance system which involved manual monitoring of students' attendance. Monitoring students has been one of the problems of the parents because they had no means to monitor their children after they left their households and thereby was usually apprehensive whether their kids went straight to school, arrived there safely and would go home unharmed.\\nThis study is intended to help the teachers, the registrar, and the staff and also the guard to make the transactions, specifically in monitoring attendance, in the school easier. This system would offer an improvement in the security done by the guard of the school and will provide assurance to the parents regarding their children's safety. To help assist in this concern, the researchers developed a system that would help the school in their monitoring of attendance and put parents' minds at rest when it comes to assurance of their children's safety. This study entitled \\\"SMS Equipped Student Monitoring System\\\" would like to achieve its goal of automating the management and monitoring of attendance and at the same time to effectively disseminate to parent significant information regarding their kids' school activities. Parents as would have a means to be aware and be informed of the time their children arrived and left the school, the schools could have a reliable and safe records of students' attendance and the students themselves could easily be informed once there would be suspension of and classes and other information such as announcements, reminders and upcoming activities and events.\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/admin/capstones/1",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"capstones",
+										"1"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Users",
+					"item": [
+						{
+							"name": "Get All Users",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{apiUrl}}/api/admin/users",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Staff",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"full_name\": \"Staff 2\",\r\n    \"email\": \"staff2@cit.edu\",\r\n    \"password\": \"P@ssw0rd\",\r\n    \"confirm_password\": \"P@ssw0rd\",\r\n    \"role\": \"Staff\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/admin/users",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						},
+						{
+							"name": "Update User",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"full_name\": \"Juan Dela Cruz\",\r\n    \"email\": \"johndoe@cbsua.edu.ph\",\r\n    \"password\": \"P@ssw0rd\",\r\n    \"confirm_password\": \"P@ssw0rd\",\r\n    \"role\": \"Student\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{apiUrl}}/api/admin/users/3",
+									"host": [
+										"{{apiUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users",
+										"3"
+									]
+								},
+								"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+							},
+							"response": []
+						}
+					]
+				}
+			],
+			"auth": {
+				"type": "bearer",
+				"bearer": [
+					{
+						"key": "token",
+						"value": "{{admin_token}}",
+						"type": "string"
+					}
+				]
+			},
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {},
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {},
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Get All Capstones",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{apiUrl}}/api/capstones",
+					"host": [
+						"{{apiUrl}}"
+					],
+					"path": [
+						"api",
+						"capstones"
+					]
+				},
+				"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+			},
+			"response": []
+		},
+		{
+			"name": "Search",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"url": {
+					"raw": "{{apiUrl}}/api/search?q=criminology",
+					"host": [
+						"{{apiUrl}}"
+					],
+					"path": [
+						"api",
+						"search"
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "criminology"
+						}
+					]
+				},
+				"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+			},
+			"response": []
+		},
+		{
+			"name": "Summarize",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"query\": \"IoT\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{apiUrl}}/api/summarize",
+					"host": [
+						"{{apiUrl}}"
+					],
+					"path": [
+						"api",
+						"summarize"
+					]
+				},
+				"description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+			},
+			"response": []
+		},
+		{
+			"name": "Upload Capstone Document",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Successful POST request\", function () {",
+							"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+							"});",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": "/C:/Users/Mikee/Desktop/2017.docx"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{apiUrl}}/api/capstones/upload-docx",
+					"host": [
+						"{{apiUrl}}"
+					],
+					"path": [
+						"api",
+						"capstones",
+						"upload-docx"
+					]
+				},
+				"description": "This is a POST request, submitting data to an API via the request body. This request submits JSON data, and the data is reflected in the response.\n\nA successful POST request typically returns a `200 OK` or `201 Created` response code."
+			},
+			"response": []
+		},
+		{
+			"name": "Ollama Summarizer",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"model\": \"llama3.2\",\r\n    \"prompt\": \"[\\\"[1] e-HISTORY: PHILIPPINE HISTORY INTERACTIVE GAME (n.d.) :: Specifically, this study was intended for the high school students of Central Bicol State University of Agriculture-Sipocot focused on Philippine History subject. This particular subject was particularly selected considering its importance and the country. Revisiting the past events, as encompassed in the lessons, could be beneficial to the present situation and for the people since it could re-strengthen the Filipino's love for the country and restore their deep understanding of their own culture. The game presented topics from Pre-Spanish era up to the present, the modern era. It showed series of hints in every level that launched additional information called trivia. The player should answer various questions to assess their learning and they could also view eBooks for additional knowledge. The game could be played via android phones or tablets and personal computers with Windows operating system. The system was developed through the aid of software applications such as Unity 5 Personal Edition and Visual Studio 2012 as the primary tool, Adobe Photoshop CS6 and Adobe Illustrator CS6 for the designs and SQLite for data storage and as the back-end of the system.\\\", '[2] TOOLS AND DEVICES MONITORING SYSTEM (n.d.) :: In this generation where modern technology has been a very influential contributor to societal development, everyone refuses anymore to go back to the era where everything was done manually. The advent of technology has effected day to day activities and brought many changes in all walks of life, like in education, communication, business and science. Technology has become a relied-on tool for most people. Educational systems, specifically the Central Bicol State of Agriculture-Sipocot and the College of Information Technology (CIT), have been promoting the employment of technology in their management transactions. However, some offices and facility under the CIT has still been adopting the manual process of transactions. This may be due to the fact that they were just been newly installed and established. The CIT computer laboratory (CL2) was one of the college laboratory rooms. It was being managed by a custodian. The problem, specifically lay in the monitoring of the process of borrowing and returning of tools and devices. Automated monitoring systems are becoming trends, creating easier method to identify item, tracking, monitoring and add on security values.', \\\"[3] Patient Recording System (n.d.) :: A few decades ago, life was dominated with manual activities. Life was simple and processes have been slow-paced. Communication was possible only in short intervals of distances. Transmission of information took time and these may have compromised efficiency and effectiveness in terms of the delivery of messages. As the years go by, transitions from one area of reality to another started to happen. We are awakened by modern and fast changes of time and the society neededand to go along with the call for change. Innovations and changes were conceptualized and made. In the first place, inventions were made as needs increased. The advent of technology made people's lives easier and more comfortable. Delays were eradicated, less, but effective, efforts were done and tasks were completed at the fastest possible time. Everyone has been positively affected by modernization and anyone can see that technological advances have significantly influenced people's ways of living, lessened their burdens in homes, at work and everywhere. Moreover, needs were satisfied and met and the delivery of service become much more efficient and effective.\\\", '[4] BIBLE QUEST: AN EDUCATIONAL TOOL FOR CHILDREN (n.d.) :: One of the contributor of the changes with how the human race live their lives are the innovations of technology. Such influence is in Education, which affected and changes the school culture. Technology advancement are used to present new ideas on how to deal with the trend and wants of the new generation. Though technology may result to forgetting the most important aspect of life, that is religion which serves as the spiritual guide, it can also be a great help and can be a tool to uplift spiritual knowledge that can be applied to everyday lives. With this project, Religion will be integrated into technology benefiting parents, lecturer, and kids as a whole. The researchers will make use of media or educational media in educating children of good traits, moral values and practices regarding Christianity which are illustrated by the characters of the biblical stories.', \\\"[5] TOOLS AND DEVICES MONITORING SYSTEM (n.d.) :: In places where there are lots of items accessed by many users, the tendency of loss is high due to weakness in items monitoring. Hence, the system entitled, Tools and Devices Monitoring System, was developed. It aimed at reducing the tasks of the custodian when it comes to monitoring brought about by its existing manual transactions of recording borrower's information and through automation. This system could manage listing of available items, borrowers' records and list of borrowers who have not yet returned borrowed items, and could give notifications to the borowers concerned. It could also generate reports of all the borrowers and the items. This system would be capable to track the items in terms of the records that the borrowers gave. It also had the capability to view all the records of items and borrowers. The researchers used the System Development Life Cycle. This was the conceptual model used in developing the project through analysis and study of a certain problem in the maintenance stage. In order for the system to become more comprehensive, reliable, and efficient, a series of interview was conducted to the costudian concerned.\\\", \\\"[6] HUMAN RESOURCE MANAGEMENT INFORMATION SYSTEM (n.d.) :: Progressions in computers and technology improved the efficiency of business transactions. Technological enhancements often reduced the number of tedious office tasks or improve efficiency. Information systems technology made possible the automation of production process, saving capital and labor and production costs to produce a specified output and actualize a major change to manpower in terms of lesser consumption of time and effort. One of the institutions that reflected this change were the universities. Central Bicol State University of Agriculture, as one of the developing universities in the Bicol Region, needed to adopt the latest and most updated trends in technology in their delivery of the quality of services. This project, Human Resource Management Information System (HRMIS) was developed by the researchers to aid the difficulties faced in the Human Resource Development (HRD) in conducting the performance evaluation for employees. Performance evaluation was conducted regularly to assess employees' strengths and weaknesses.\\\", \\\"[7] A PRE-ASSESSMENT TOOL FOR NATIONAL ACHIEVEMENT TEST (n.d.) :: A life without computers would seem almost unimaginable for many individuals, considering its advantages and benefits. The advent of technology was a great relief after having been exposed to manual activities. All aspects of life and every corner of the society, have been affected by this advancement. In fact everyone has been enjoying everything that this advancement offered. The academic community has also been affected and influenced by this advancement. Institutions, the work staff and students have been exposed to this new milestone. In the classroom, traditional teaching methods during the delivery of instruction have been 'refurnished' due to the introduction of computer technology. Computer technology had a great impact on education. Computer-aided education played a key role in the modern system of education that has offer edease in the process of learning which spelled a big difference when it came to effectiveness and sustainable quality of education and the educational system. The computers has been a very effective device greatly helped the teachers in their delivery of instruction.\\\", '[8] BUOHIN, ALAMIN AT TUKUYIN: AN EDUCATIONAL TOOL FOR GRADE 1 PUPILS (n.d.) :: In today\\\\'s generation, technology has become a trend and is becoming more popular as it is developed and improved each day. With technology, almost every activity is so easy to be done, thus, it has played a very important role in our society as it gives high impact to people\\\\'s daily living. However, in terms of education, things are done the traditional and way like the use of Manila papers, cards and other materials. Thus, there are times and situations when teachers encounter difficulties in teaching and catching the attention and concentration of the pupils. Lots of situations like the pupils getting bored due to the usual set-up of class discussion and knowledge assessment like giving of quizzes. This educational tool, \\\"Buohin, Alamin At Tukuyin: An Educational Tool For Grade 1 Pupils\\\", would benefit both the Filipino teachers and Grade I pupils of King Thomas Learning Academy. This will enable the pupils focus and absorb the lessons while enjoying it at the same time. Therefore, the researchers developed this tool to make teaching of Filipino subjects better and the learning of it with fun as this is characterized by a puzzle game that serves as its educational tool.', '[9] CLASS SCHEDULER SYSTEM (n.d.) :: In order to run and use the system, Microsoft Windows 7 Home Premium operating system and higher was used by the researchers. Also used in testing the system were Laravel Framework 5.2 and Cross-Platform Apache MariaDB PHP and Pearl (XAMPP).', '[10] CLASS OF CUBES: AN E-LEARNING GAME APPLICATION FOR ELEMENTARY PUPILS (n.d.) :: Researches: Jonel DS. Veran, Marivic A. Morante, Jan Kenneth C. Acuzar, Alyza C. Alday, Sheena A. Morata\\\\n\\\\nPeople access the computers on a wide range basis. This does not exclude children as they are very passionate of playing computer games. Computer games as a new multimedia culture is based on digital computer technology. These have become increasingly popular as these at the beginning were only played by young adults, but now, even very your children do. As such, computer games have become a matter-of-course in the everyday life of people - young people and children. The merging of games and learning hits sweet spot with the cognitive ability of children. Kids are good at and have fun at the same time. Computers allow this fusion in ways that are not possible or practical in traditional approaches to learning; learning process advances with the use of technology. This educational game, \\\"Class of Cubes: An E-Learning Game Application for Elementary Pupils\\\" gives students the opportunity to interact with the lessons. This would catch the interest of every student and enable the teacher deliver lessons.']\",\r\n    \"stream\": false\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:11434/api/generate",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "11434",
+					"path": [
+						"api",
+						"generate"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{apiUrl}}/api/capstones/1",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{apiUrl}}/api/capstones/1",
+					"host": [
+						"{{apiUrl}}"
+					],
+					"path": [
+						"api",
+						"capstones",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "New Request",
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		}
+	]
+}

@@ -1,373 +1,591 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import V9Gradient from '../../assets/images/V9.svg';
-import { useCapstoneContext } from '../../CapstoneProjectsContext';
+import { apiClient } from '../../api/client';
+import { useAuth } from '../../AuthContext';
 
 export default function CapstoneProjects() {
   const navigate = useNavigate();
-  const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [uploadType, setUploadType] = useState(null); // 'manual' or 'bulk'
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filterType, setFilterType] = useState('All');
-  const [categoryFilter, setCategoryFilter] = useState('Category');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [bulkFiles, setBulkFiles] = useState([]);
+  const { logout, user } = useAuth();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [capstones, setCapstones] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    total_pages: 0,
+    has_next: false,
+    has_prev: false,
+  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [uploadMode, setUploadMode] = useState('file'); // 'file' or 'manual'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteItem, setDeleteItem] = useState(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const {
-    capstones,
-    fetchCapstones,
-    uploadDocx,
-    uploading,
-    addCapstone,
-    updateCapstone,
-    deleteCapstone,
-  } = useCapstoneContext();
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [debounceTimer, setDebounceTimer] = useState(null);
 
   const [formData, setFormData] = useState({
     id: '',
     title: '',
-    authors: '',
-    keywords: '',
+    authors: [],
+    adviser: '',
+    keywords: [],
     year: '',
     abstract: '',
+    category: '',
+    note: '',
   });
 
-  const itemsPerPage = 5;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const [publishData, setPublishData] = useState({
+    id: '',
+    title: '',
+    keywords: [],
+    category: '',
+    note: '',
+  });
+
+  const [revertData, setRevertData] = useState({
+    id: '',
+    title: '',
+    note: '',
+  });
+
+  const [rejectData, setRejectData] = useState({
+    id: '',
+    title: '',
+    note: '',
+  });
 
   useEffect(() => {
-    // Add shimmer animation styles
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes shimmer {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(100%); }
-      }
-      .animate-shimmer {
-        animation: shimmer 2s infinite;
-      }
-      @keyframes slide-in {
-        from {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
-      }
-      .animate-slide-in {
-        animation: slide-in 0.3s ease-out;
-      }
-    `;
-    document.head.appendChild(style);
-
-    // Simulate data loading
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-
-    return () => {
-      clearTimeout(timer);
-      document.head.removeChild(style);
-    };
+    fetchCapstones(1, statusFilter, searchQuery);
   }, []);
 
-  const handleAdd = () => {
-    setFormData({
-      id: '',
-      title: '',
-      author: '',
-      keywords: '',
-      year: '',
-      file: null,
-    });
-    setUploadedFile(null);
-    setBulkFiles([]);
-    setUploadType(null);
-    setIsChoiceModalOpen(true);
-  };
+  useEffect(() => {
+    if (debounceTimer) clearTimeout(debounceTimer);
 
-  const handleChoiceSelect = (type) => {
-    setUploadType(type);
-    setIsChoiceModalOpen(false);
-    setIsModalOpen(true);
-  };
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+      fetchCapstones(1, statusFilter, searchQuery);
+    }, 500); // 500ms debounce
 
-  const handleBulkFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    setBulkFiles(files);
-  };
+    setDebounceTimer(timer);
 
-  const handleEdit = (capstone) => {
-    setFormData({ ...capstone });
-    setUploadedFile(null);
-    setUploadType(null);
-    setIsModalOpen(true);
-  };
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  // Check if form has input data
-  const hasInputData = () => {
-    if (uploadType === 'manual') {
-      return (
-        formData.title ||
-        formData.authors ||
-        formData.keywords ||
-        formData.year ||
-        formData.abstract
-      );
-    } else if (uploadType === 'bulk') {
-      return bulkFiles.length > 0;
-    } else {
-      return (
-        formData.title ||
-        formData.authors ||
-        formData.keywords ||
-        formData.year ||
-        formData.abstract
-      );
+  useEffect(() => {
+    setCurrentPage(1);
+    fetchCapstones(1, statusFilter, searchQuery);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    fetchCapstones(1, statusFilter, searchQuery);
+  }, [itemsPerPage]);
+
+  const fetchCapstones = async (page = 1, status = 'all', search = '') => {
+    setLoading(true);
+    try {
+      const response = await apiClient.getAdminCapstones({
+        page,
+        limit: itemsPerPage,
+        status,
+        search,
+      });
+
+      if (response.status === 'success') {
+        setCapstones(response.capstones || []);
+        if (response.pagination) {
+          setPagination(response.pagination);
+          setCurrentPage(response.pagination.page);
+        }
+      } else {
+        showError('Failed to load capstones');
+      }
+    } catch (err) {
+      showError('An error occurred while loading capstones');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleModalClose = () => {
-    if (hasInputData()) {
-      return; // Prevent closing if there's input data
-    }
-    setIsModalOpen(false);
-    setUploadType(null);
+  const showError = (message) => {
+    setModalMessage(message);
+    setShowErrorModal(true);
+    setTimeout(() => setShowErrorModal(false), 3000);
+  };
+
+  const showSuccess = (message) => {
+    setModalMessage(message);
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 3000);
+  };
+
+  const handleOpenUploadModal = () => {
+    setUploadMode('file');
+    setUploadFile(null);
     setFormData({
       id: '',
       title: '',
-      author: '',
-      keywords: '',
+      authors: [],
+      adviser: '',
+      keywords: [],
       year: '',
-      file: null,
+      abstract: '',
+      category: '',
     });
-    setUploadedFile(null);
-    setBulkFiles([]);
+    setIsUploadModalOpen(true);
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setUploadedFile(file);
-      setFormData({ ...formData, file: file });
+    const file = e.target.files?.[0];
+    if (file && file.name.endsWith('.docx')) {
+      setUploadFile(file);
+    } else {
+      showError('Please select a valid .docx file');
     }
   };
 
-  const handleDelete = (id) => {
-    const capstone = capstones.find((c) => c.id === id);
-    setDeleteItem({
-      id,
-      title: capstone?.title || 'this capstone project',
-      type: 'capstone',
+  const handleUploadFile = async (e) => {
+    e.preventDefault();
+
+    if (!uploadFile) {
+      showError('Please select a file');
+      return;
+    }
+
+    setFormSubmitting(true);
+    try {
+      const response = await apiClient.uploadAdminCapstone(uploadFile);
+
+      if (response.status === 'success' || response.status === 'ok') {
+        // Show upload summary notification
+        const { total_entries, created } = response;
+        const message = `${total_entries} capstone${
+          total_entries !== 1 ? 's' : ''
+        } processed. ${created} new capstone${
+          created !== 1 ? 's' : ''
+        } created.`;
+        showSuccess(message);
+
+        setFormData(
+          response.data?.[0] || {
+            id: '',
+            title: '',
+            authors: [],
+            adviser: '',
+            keywords: [],
+            year: '',
+            abstract: '',
+            category: '',
+          }
+        );
+        setUploadFile(null);
+
+        // Close modal after showing notification
+        setTimeout(() => {
+          setIsUploadModalOpen(false);
+          fetchCapstones();
+        }, 500);
+      } else {
+        showError(response.message || 'Failed to upload file');
+      }
+    } catch (err) {
+      showError('An error occurred while uploading');
+      console.error(err);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const updateAuthor = (index, value) => {
+    const newAuthors = [...formData.authors];
+    newAuthors[index] = value;
+    setFormData((prev) => ({ ...prev, authors: newAuthors }));
+  };
+
+  const removeAuthor = (index) => {
+    const newAuthors = formData.authors.filter((_, i) => i !== index);
+    setFormData((prev) => ({ ...prev, authors: newAuthors }));
+  };
+
+  const addAuthor = () => {
+    setFormData((prev) => ({ ...prev, authors: [...prev.authors, ''] }));
+  };
+
+  const updateKeyword = (index, value) => {
+    // Remove commas from keyword input
+    const cleanValue = value.replace(/,/g, '');
+    const newKeywords = [...formData.keywords];
+    newKeywords[index] = cleanValue;
+    setFormData((prev) => ({ ...prev, keywords: newKeywords }));
+  };
+
+  const removeKeyword = (index) => {
+    const newKeywords = formData.keywords.filter((_, i) => i !== index);
+    setFormData((prev) => ({ ...prev, keywords: newKeywords }));
+  };
+
+  const addKeyword = () => {
+    setFormData((prev) => ({ ...prev, keywords: [...prev.keywords, ''] }));
+  };
+
+  const handlePublishCapstone = async (e) => {
+    e.preventDefault();
+
+    // Validate required fields
+    if (!formData.title) {
+      showError('Please enter a title');
+      return;
+    }
+    if (!formData.abstract) {
+      showError('Please enter an abstract');
+      return;
+    }
+    if (!formData.year) {
+      showError('Please enter a year');
+      return;
+    }
+    if (
+      formData.authors.length === 0 ||
+      formData.authors.some((a) => !a.trim())
+    ) {
+      showError('Please enter at least one author');
+      return;
+    }
+    if (
+      formData.keywords.length === 0 ||
+      formData.keywords.some((k) => !k.trim())
+    ) {
+      showError('Please enter at least one keyword');
+      return;
+    }
+    if (!formData.category) {
+      showError('Please select a category');
+      return;
+    }
+
+    setFormSubmitting(true);
+    setProcessingProgress(0);
+
+    try {
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setProcessingProgress((prev) => Math.min(prev + 10, 90));
+      }, 200);
+
+      // Filter out empty authors and keywords
+      const payload = {
+        title: formData.title,
+        authors: formData.authors.filter((a) => a.trim()),
+        keywords: formData.keywords.filter((k) => k.trim()),
+        year: formData.year,
+        abstract: formData.abstract,
+        adviser: formData.adviser || null,
+        category: formData.category,
+      };
+
+      let response;
+      if (isEditMode) {
+        response = await apiClient.editCapstone(formData.id, payload);
+      } else if (formData.id) {
+        // File upload - use publishCapstone with keywords, category, and note
+        response = await apiClient.publishCapstone(formData.id, {
+          keywords: formData.keywords.filter((k) => k.trim()),
+          category: formData.category,
+          note: formData.note || '',
+        });
+      } else {
+        // Manual entry - use new endpoint
+        response = await apiClient.createAdminCapstone(payload);
+      }
+
+      clearInterval(progressInterval);
+      setProcessingProgress(100);
+
+      if (response.status === 'ok' || response.status === 'success') {
+        showSuccess(
+          isEditMode
+            ? 'Capstone updated successfully!'
+            : 'Capstone approved successfully!'
+        );
+        setIsUploadModalOpen(false);
+        setIsModalOpen(false);
+        fetchCapstones();
+      } else {
+        showError(response.message || 'Failed to process capstone');
+      }
+    } catch (err) {
+      showError(
+        err.response?.data?.detail || 'An error occurred while processing'
+      );
+      console.error(err);
+    } finally {
+      setFormSubmitting(false);
+      setProcessingProgress(0);
+    }
+  };
+
+  const handleEditCapstone = (capstone) => {
+    setIsEditMode(true);
+    setFormData({
+      id: capstone.id,
+      title: capstone.title || '',
+      authors: Array.isArray(capstone.authors) ? capstone.authors : [],
+      adviser: capstone.adviser || '',
+      keywords: Array.isArray(capstone.keywords) ? capstone.keywords : [],
+      year: capstone.year || '',
+      abstract: capstone.abstract || '',
+      category: capstone.category || '',
+      note: capstone.note || '',
     });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenPublishModal = (capstone) => {
+    setPublishData({
+      id: capstone.id,
+      title: capstone.title || '',
+      keywords: Array.isArray(capstone.keywords) ? capstone.keywords : [],
+      category: capstone.category || '',
+      note: '',
+    });
+    setIsPublishModalOpen(true);
+  };
+
+  const updatePublishKeyword = (index, value) => {
+    const updatedKeywords = [...publishData.keywords];
+    updatedKeywords[index] = value;
+    setPublishData({ ...publishData, keywords: updatedKeywords });
+  };
+
+  const addPublishKeyword = () => {
+    setPublishData({
+      ...publishData,
+      keywords: [...publishData.keywords, ''],
+    });
+  };
+
+  const removePublishKeyword = (index) => {
+    const updatedKeywords = publishData.keywords.filter((_, i) => i !== index);
+    setPublishData({ ...publishData, keywords: updatedKeywords });
+  };
+
+  const handlePublishFormChange = (e) => {
+    const { name, value } = e.target;
+    setPublishData({ ...publishData, [name]: value });
+  };
+
+  const handleSubmitPublish = async (e) => {
+    e.preventDefault();
+
+    // Validate required fields
+    if (
+      publishData.keywords.length === 0 ||
+      publishData.keywords.some((k) => !k.trim())
+    ) {
+      showError('Please enter at least one keyword');
+      return;
+    }
+    if (!publishData.category) {
+      showError('Please select a category');
+      return;
+    }
+
+    setFormSubmitting(true);
+    setProcessingProgress(0);
+
+    try {
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setProcessingProgress((prev) => Math.min(prev + 10, 90));
+      }, 200);
+
+      const response = await apiClient.publishCapstone(publishData.id, {
+        keywords: publishData.keywords.filter((k) => k.trim()),
+        category: publishData.category,
+        note: publishData.note || '',
+      });
+
+      clearInterval(progressInterval);
+      setProcessingProgress(100);
+
+      if (response.status === 'ok' || response.status === 'success') {
+        showSuccess('Capstone approved successfully!');
+        setIsPublishModalOpen(false);
+        fetchCapstones(1, statusFilter, searchQuery);
+      } else {
+        showError(response.message || 'Failed to publish capstone');
+      }
+    } catch (err) {
+      showError(
+        err.response?.data?.detail || 'An error occurred while publishing'
+      );
+      console.error(err);
+    } finally {
+      setFormSubmitting(false);
+      setProcessingProgress(0);
+    }
+  };
+
+  const handleOpenRevertModal = (capstone) => {
+    setRevertData({
+      id: capstone.id,
+      title: capstone.title || '',
+      note: '',
+    });
+    setIsRevertModalOpen(true);
+  };
+
+  const handleRevertFormChange = (e) => {
+    const { name, value } = e.target;
+    setRevertData({ ...revertData, [name]: value });
+  };
+
+  const handleSubmitRevert = async (e) => {
+    e.preventDefault();
+
+    setFormSubmitting(true);
+    setProcessingProgress(0);
+
+    try {
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setProcessingProgress((prev) => Math.min(prev + 10, 90));
+      }, 200);
+
+      const response = await apiClient.revertCapstontoPending(
+        revertData.id,
+        revertData.note
+      );
+
+      clearInterval(progressInterval);
+      setProcessingProgress(100);
+
+      if (response.status === 'ok' || response.status === 'success') {
+        showSuccess('Capstone reverted to pending successfully!');
+        setIsRevertModalOpen(false);
+        fetchCapstones(1, statusFilter, searchQuery);
+      } else {
+        showError(response.message || 'Failed to revert capstone');
+      }
+    } catch (err) {
+      showError(
+        err.response?.data?.detail || 'An error occurred while reverting'
+      );
+      console.error(err);
+    } finally {
+      setFormSubmitting(false);
+      setProcessingProgress(0);
+    }
+  };
+
+  const handleOpenRejectModal = (capstone) => {
+    setRejectData({
+      id: capstone.id,
+      title: capstone.title || '',
+      note: '',
+    });
+    setIsRejectModalOpen(true);
+  };
+
+  const handleRejectFormChange = (e) => {
+    const { name, value } = e.target;
+    setRejectData({ ...rejectData, [name]: value });
+  };
+
+  const handleSubmitReject = async (e) => {
+    e.preventDefault();
+
+    setFormSubmitting(true);
+    setProcessingProgress(0);
+
+    try {
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setProcessingProgress((prev) => Math.min(prev + 10, 90));
+      }, 200);
+
+      const response = await apiClient.rejectCapstone(
+        rejectData.id,
+        rejectData.note
+      );
+
+      clearInterval(progressInterval);
+      setProcessingProgress(100);
+
+      if (response.status === 'ok' || response.status === 'success') {
+        showSuccess('Capstone rejected successfully!');
+        setIsRejectModalOpen(false);
+        fetchCapstones(1, statusFilter, searchQuery);
+      } else {
+        showError(response.message || 'Failed to reject capstone');
+      }
+    } catch (err) {
+      showError(
+        err.response?.data?.detail || 'An error occurred while rejecting'
+      );
+      console.error(err);
+    } finally {
+      setFormSubmitting(false);
+      setProcessingProgress(0);
+    }
+  };
+
+  const handleDeleteClick = (capstone) => {
+    setDeleteItem(capstone);
     setIsDeleteModalOpen(true);
   };
 
-  const confirmDelete = async () => {
-    if (deleteItem) {
-      try {
+  const handleConfirmDelete = async () => {
+    if (!deleteItem) return;
+
+    setFormSubmitting(true);
+    try {
+      const response = await apiClient.deleteCapstone(deleteItem.id);
+      if (response.status === 'ok' || response.status === 'success') {
+        showSuccess(response.message || 'Capstone deleted successfully!');
+        setIsDeleteModalOpen(false);
         setDeleteItem(null);
-        setIsRefreshing(true);
-
-        const result = await deleteCapstone(deleteItem.id);
-
-        if (result) {
-          setIsDeleteModalOpen(false);
-          setIsRefreshing(false);
-          await fetchCapstones();
-          setModalMessage('Capstone project deleted successfully!');
-          setShowSuccessModal(true);
-          setTimeout(() => setShowSuccessModal(false), 3000);
-        } else {
-          setModalMessage('Failed to delete capstone project.');
-          setShowErrorModal(true);
-          setTimeout(() => setShowErrorModal(false), 3000);
-        }
-      } catch (e) {
-        setModalMessage('Failed to delete capstone project.');
-        setShowErrorModal(true);
-        setTimeout(() => setShowErrorModal(false), 3000);
-      }
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    console.log('submitting', e.target);
-    e.preventDefault();
-    try {
-      if (formData.id) {
-        const result = await updateCapstone(formData.id, e.target);
-
-        if (result) {
-          setIsRefreshing(true);
-          setIsModalOpen(false);
-          setModalMessage('Capstone project updated successfully!');
-          setIsRefreshing(false);
-          setShowSuccessModal(true);
-          await fetchCapstones();
-
-          setFormData({
-            id: '',
-            title: '',
-            author: '',
-            keywords: '',
-            year: '',
-            file: null,
-          });
-          setTimeout(() => setShowSuccessModal(false), 3000);
-        } else {
-          setModalMessage('Failed to update capstone project.');
-          setShowErrorModal(true);
-          setTimeout(() => setShowErrorModal(false), 3000);
-        }
+        fetchCapstones(1, statusFilter, searchQuery);
       } else {
-        const result = await addCapstone(e.target);
-
-        if (result) {
-          setIsRefreshing(true);
-          setIsModalOpen(false);
-          setModalMessage('Capstone project added successfully!');
-          setIsRefreshing(false);
-          setShowSuccessModal(true);
-          await fetchCapstones();
-
-          setFormData({
-            id: '',
-            title: '',
-            author: '',
-            keywords: '',
-            year: '',
-            file: null,
-          });
-          setTimeout(() => setShowSuccessModal(false), 3000);
-        } else {
-          setModalMessage('Failed to add capstone project.');
-          setShowErrorModal(true);
-          setTimeout(() => setShowErrorModal(false), 3000);
-        }
+        showError(response.message || 'Failed to delete capstone');
       }
-    } catch (error) {
-      setIsRefreshing(false);
-      setModalMessage('Failed to save capstone project. Please try again.');
-      setShowErrorModal(true);
-      setTimeout(() => setShowErrorModal(false), 3000);
+    } catch (err) {
+      showError('An error occurred while deleting');
+      console.error(err);
+    } finally {
+      setFormSubmitting(false);
     }
   };
 
-  const handleBulkSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (bulkFiles.length === 0) {
-        setModalMessage('Please select files to upload.');
-        setShowErrorModal(true);
-        setTimeout(() => setShowErrorModal(false), 3000);
-        return;
-      }
-      // Handle bulk upload logic here
-      console.log('Bulk files:', bulkFiles);
-      const result = await uploadDocx(bulkFiles[0]);
-      if (result) {
-        setIsModalOpen(false);
-        setBulkFiles([]);
-        setUploadType(null);
-        setModalMessage('Files uploaded successfully!');
-        setShowSuccessModal(true);
-        setTimeout(() => setShowSuccessModal(false), 3000);
-      } else {
-        setModalMessage('Failed to upload file');
-        setShowErrorModal(true);
-        setTimeout(() => setShowErrorModal(false), 3000);
-      }
-    } catch (error) {
-      setModalMessage('Failed to upload files. Please try again.');
-      setShowErrorModal(true);
-      setTimeout(() => setShowErrorModal(false), 3000);
-    }
-  };
-
-  const filteredCapstones = capstones.filter((capstone) => {
-    const matchesCategory =
-      categoryFilter === 'Category' || capstone.keywords === categoryFilter;
-    const matchesSearch =
-      !searchQuery ||
-      capstone.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      capstone.keywords.some((a) =>
-        a.toLowerCase().includes(searchQuery.toLowerCase())
-      ) ||
-      capstone.authors.some((a) =>
-        a.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-    return matchesCategory && matchesSearch;
-  });
-
-  const totalFilteredPages =
-    Math.ceil(filteredCapstones.length / itemsPerPage) || 1;
-  const paginatedCapstones = filteredCapstones.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    if (currentPage > totalFilteredPages && totalFilteredPages > 0) {
-      setCurrentPage(1);
-    }
-  }, [totalFilteredPages, currentPage]);
-
-  // Skeleton Components
-  const SkeletonShimmer = ({ className = '' }) => (
-    <div className={`relative overflow-hidden ${className}`}>
-      <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent"></div>
-    </div>
-  );
-
-  const SkeletonRow = () => (
-    <tr className="border-b border-gray-100">
-      {[1, 2, 3, 4, 5, 6].map((num) => (
-        <td key={num} className="py-3 px-4">
-          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded relative overflow-hidden">
-            <SkeletonShimmer />
-          </div>
-        </td>
-      ))}
-    </tr>
-  );
-
-  const SkeletonControls = () => (
-    <div className="flex flex-wrap items-center gap-4 mb-6">
-      <div className="flex items-center gap-3">
-        <div className="h-4 w-12 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded relative overflow-hidden">
-          <SkeletonShimmer />
-        </div>
-        <div className="h-10 w-24 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg relative overflow-hidden">
-          <SkeletonShimmer />
-        </div>
-        <div className="h-10 w-32 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg relative overflow-hidden">
-          <SkeletonShimmer />
-        </div>
-      </div>
-      <div className="ml-auto flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg relative overflow-hidden">
-          <SkeletonShimmer />
-        </div>
-        <div className="h-10 w-64 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-lg relative overflow-hidden">
-          <SkeletonShimmer />
-        </div>
-      </div>
-    </div>
-  );
+  const paginatedCapstones = capstones;
+  const totalPages = pagination.total_pages;
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -375,7 +593,7 @@ export default function CapstoneProjects() {
       <aside className="w-20 bg-purple-900 flex flex-col items-center py-6 gap-6 h-screen fixed left-0 top-0 overflow-hidden">
         {/* Dashboard Icon */}
         <div
-          onClick={() => navigate('/admin/dashboard')}
+          onClick={() => navigate('/admin')}
           className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors"
         >
           <svg
@@ -393,11 +611,8 @@ export default function CapstoneProjects() {
           </svg>
         </div>
 
-        {/* Document Icon */}
-        <div
-          onClick={() => navigate('/admin/capstone-projects')}
-          className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors bg-purple-800"
-        >
+        {/* Document Icon - Active */}
+        <div className="w-8 h-8 flex items-center justify-center text-white cursor-pointer bg-purple-800 rounded-lg transition-colors">
           <svg
             className="w-6 h-6"
             fill="none"
@@ -413,61 +628,27 @@ export default function CapstoneProjects() {
           </svg>
         </div>
 
-        {/* Users/People Icon */}
-        <div
-          onClick={() => navigate('/admin/account-management')}
-          className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors"
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        {/* Users/People Icon - Only show for Admin */}
+        {user?.user?.role === 'admin' && (
+          <div
+            onClick={() => navigate('/admin/account-management')}
+            className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-            />
-          </svg>
-        </div>
-
-        {/* User Settings Icon */}
-        <div className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors relative">
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-            />
-          </svg>
-          <svg
-            className="w-3 h-3 absolute bottom-0 right-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
-        </div>
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+              />
+            </svg>
+          </div>
+        )}
 
         {/* Logout Icon */}
         <div
@@ -491,1048 +672,953 @@ export default function CapstoneProjects() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 ml-20">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800">
-              Capstone
-            </span>{' '}
-            <span className="text-gray-900">Projects</span>
-          </h1>
-        </div>
+      <main className="flex-1 ml-20 p-8">
+        <div className="px-6 py-8 max-w-7xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-gray-900">
+              Capstone Projects
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Manage and publish capstone submissions
+            </p>
+          </div>
 
-        {/* Controls and Table Container */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          {/* Filters and Search */}
-          {isLoading ? (
-            <SkeletonControls />
-          ) : (
-            <div className="flex flex-wrap items-center gap-4 mb-6">
-              {/* Filters */}
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-gray-700">
-                  Filter:
-                </label>
+          {showErrorModal && (
+            <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+              {modalMessage}
+            </div>
+          )}
+
+          {showSuccessModal && (
+            <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+              {modalMessage}
+            </div>
+          )}
+
+          <div className="bg-white rounded-lg shadow-md">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center flex-wrap gap-4">
+              <div className="flex gap-4 items-center flex-wrap">
                 <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 hover:border-gray-400 transition"
                 >
-                  <option value="All">All</option>
-                  <option value="Recent">Recent</option>
-                  <option value="Popular">Popular</option>
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
                 </select>
-              </div>
 
-              {/* Add Button and Search */}
-              <div className="ml-auto flex items-center gap-3">
-                <button
-                  onClick={handleAdd}
-                  className="w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center transition-colors shadow-md hover:shadow-lg"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                </button>
                 <div className="relative">
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search capstone..."
-                    className="pl-4 pr-10 py-2 border border-gray-300 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Search capstones..."
+                    className="pl-4 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 hover:border-gray-400 transition"
                   />
-                  <svg
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Capstone ID
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Title
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Author
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Keywords
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Year
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading || isRefreshing ? (
-                  <>
-                    <SkeletonRow />
-                    <SkeletonRow />
-                    <SkeletonRow />
-                    <SkeletonRow />
-                    <SkeletonRow />
-                  </>
-                ) : (
-                  paginatedCapstones.map((capstone, index) => (
-                    <tr
-                      key={index}
-                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="py-3 px-4 text-sm text-gray-900">
-                        {capstone.id}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-900">
-                        {capstone.title}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-700">
-                        {capstone.authors.map((k, idx) => (
-                          <span
-                            key={idx}
-                            className="px-3 py-1 m-1 hover:text-purple-700 inline-block"
-                          >
-                            {k}
-                          </span>
-                        ))}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-700">
-                        {capstone.keywords.map((k, idx) => (
-                          <span
-                            key={idx}
-                            className="px-3 py-1 m-1 hover:text-purple-700 inline-block rounded-full shadow "
-                          >
-                            {k}
-                          </span>
-                        ))}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-700">
-                        {capstone.year}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handleEdit(capstone)}
-                            className="text-purple-600 hover:text-purple-700 transition-colors"
-                          >
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(capstone.id)}
-                            className="text-red-500 hover:text-red-600 transition-colors"
-                          >
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
-                        </div>
+              <button
+                onClick={handleOpenUploadModal}
+                className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center gap-2 font-medium shadow-md"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Add Capstone
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      Title
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      Authors
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      Year
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="px-6 py-8 text-center text-gray-500"
+                      >
+                        Loading capstones...
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {!isLoading && (
-            <div className="flex items-center justify-center mt-6 gap-2">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="p-2 text-purple-600 hover:text-purple-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
-              <span className="text-sm text-gray-700 px-4">
-                {currentPage} of {totalFilteredPages}
-              </span>
-              <button
-                onClick={() =>
-                  setCurrentPage((prev) =>
-                    Math.min(totalFilteredPages, prev + 1)
-                  )
-                }
-                disabled={currentPage >= totalFilteredPages}
-                className="p-2 text-purple-600 hover:text-purple-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
+                  ) : paginatedCapstones.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="px-6 py-8 text-center text-gray-500"
+                      >
+                        No capstones found
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedCapstones.map((capstone) => (
+                      <tr
+                        key={capstone.id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="px-6 py-4 text-sm text-gray-900 font-medium max-w-xs truncate">
+                          {capstone.title}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
+                          {Array.isArray(capstone.authors)
+                            ? capstone.authors.join(', ')
+                            : capstone.authors}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {capstone.year}
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <span
+                            className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                              capstone.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : capstone.status === 'approved' ||
+                                  capstone.status === 'published'
+                                ? 'bg-green-100 text-green-800'
+                                : capstone.status === 'rejected'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {capstone.status.charAt(0).toUpperCase() +
+                              capstone.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <div className="relative group">
+                            <button className="inline-flex items-center px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">
+                              Actions
+                              <svg
+                                className="w-4 h-4 ml-1"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                                />
+                              </svg>
+                            </button>
+                            <div className="absolute right-0 mt-0 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                              {capstone.status?.toLowerCase() === 'pending' && (
+                                <button
+                                  onClick={() =>
+                                    handleOpenPublishModal(capstone)
+                                  }
+                                  className="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50 first:rounded-t-lg"
+                                >
+                                  ✓ Approve
+                                </button>
+                              )}
+                              {capstone.status?.toLowerCase() !== 'pending' && (
+                                <button
+                                  onClick={() =>
+                                    handleOpenRevertModal(capstone)
+                                  }
+                                  className="block w-full text-left px-4 py-2 text-sm text-orange-700 hover:bg-orange-50"
+                                >
+                                  ↺ Revert to Pending
+                                </button>
+                              )}
+                              {capstone.status?.toLowerCase() !==
+                                'rejected' && (
+                                <button
+                                  onClick={() =>
+                                    handleOpenRejectModal(capstone)
+                                  }
+                                  className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                                >
+                                  ✕ Reject
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleEditCapstone(capstone)}
+                                className="block w-full text-left px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50"
+                              >
+                                ✎ Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteClick(capstone)}
+                                className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 last:rounded-b-lg border-t border-gray-200"
+                              >
+                                🗑 Delete
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
 
-        {/* Choice Modal - Manual Input or Bulk Upload */}
-        {isChoiceModalOpen && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={() => setIsChoiceModalOpen(false)}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800">
-                  Add Capstone
-                </h2>
-                <button
-                  onClick={() => setIsChoiceModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <button
-                  onClick={() => handleChoiceSelect('manual')}
-                  className="w-full flex items-center gap-3 px-6 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors shadow-md hover:shadow-lg"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  <span className="font-semibold">Add Capstone</span>
-                </button>
-                <button
-                  onClick={() => handleChoiceSelect('bulk')}
-                  className="w-full flex items-center gap-3 px-6 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors shadow-md hover:shadow-lg"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                  <span className="font-semibold">Bulk Upload</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Manual Input Modal */}
-        {isModalOpen && uploadType === 'manual' && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={handleModalClose}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Add Capstone
-                </h2>
-                <button
-                  onClick={handleModalClose}
-                  disabled={hasInputData()}
-                  className={`text-gray-400 hover:text-gray-600 transition-colors ${
-                    hasInputData() ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    name="title"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Add title here."
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Authors <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="authors"
-                    value={formData.authors}
-                    onChange={(e) =>
-                      setFormData({ ...formData, authors: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Add authors here."
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Keywords <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      value={formData.keywords}
-                      name="keywords"
-                      onChange={(e) =>
-                        setFormData({ ...formData, keywords: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      required
-                    ></input>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Year <span className="text-red-500">*</span>
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                  <p className="text-sm text-gray-600">
+                    Page {currentPage} of {totalPages}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor="itemsPerPage"
+                      className="text-sm text-gray-600"
+                    >
+                      Items per page:
                     </label>
                     <select
-                      value={formData.year}
-                      name="year"
-                      onChange={(e) =>
-                        setFormData({ ...formData, year: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      required
+                      id="itemsPerPage"
+                      value={itemsPerPage}
+                      onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                      className="px-3 py-1 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                      <option value="">Select</option>
-                      <option value="2021">2021</option>
-                      <option value="2022">2022</option>
-                      <option value="2023">2023</option>
-                      <option value="2024">2024</option>
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
                     </select>
                   </div>
                 </div>
-
-                {/* File Upload */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Abstract <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <textarea
-                      value={formData.abstract}
-                      name="abstract"
-                      onChange={(e) =>
-                        setFormData({ ...formData, abstract: e.target.value })
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (pagination.has_prev) {
+                        fetchCapstones(
+                          currentPage - 1,
+                          statusFilter,
+                          searchQuery
+                        );
                       }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Add capstone project abstract."
-                      required
-                      rows="6"
-                    />
-                  </div>
-                  {uploadedFile && (
-                    <p className="mt-2 text-sm text-gray-600">
-                      Selected: {uploadedFile.name}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setUploadType(null);
                     }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    disabled={!pagination.has_prev}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Cancel
+                    Previous
                   </button>
                   <button
-                    type="submit"
-                    className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+                    onClick={() => {
+                      if (pagination.has_next) {
+                        fetchCapstones(
+                          currentPage + 1,
+                          statusFilter,
+                          searchQuery
+                        );
+                      }
+                    }}
+                    disabled={!pagination.has_next}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Save
+                    Next
                   </button>
                 </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Bulk Upload Modal */}
-        {isModalOpen && uploadType === 'bulk' && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={handleModalClose}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Bulk Upload
-                </h2>
-                <button
-                  onClick={handleModalClose}
-                  disabled={hasInputData()}
-                  className={`text-gray-400 hover:text-gray-600 transition-colors ${
-                    hasInputData() ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
               </div>
+            )}
+          </div>
 
-              <form onSubmit={handleBulkSubmit} className="space-y-4">
-                <div>
-                  <input
-                    type="file"
-                    onChange={handleBulkFileChange}
-                    className="hidden"
-                    id="bulk-file-upload"
-                    accept=".docx"
-                  />
-                  <label
-                    htmlFor="bulk-file-upload"
-                    className="flex flex-col items-center justify-center gap-4 w-full px-4 py-16 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors"
-                  >
-                    <svg
-                      className="w-12 h-12 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+          {/* Upload Modal */}
+          {isUploadModalOpen && uploadMode === 'file' && (
+            <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  Upload Capstone
+                </h2>
+
+                <form onSubmit={handleUploadFile} className="space-y-4">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <input
+                      type="file"
+                      accept=".docx"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="fileInput"
+                    />
+                    <label
+                      htmlFor="fileInput"
+                      className="cursor-pointer flex flex-col items-center gap-2"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-gray-700">
-                        Drag and Drop files here.
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Only accept DOCX (Microsoft Word) files.
-                      </p>
-                    </div>
-                  </label>
-                  {bulkFiles.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      <p className="text-sm font-medium text-gray-700">
-                        Selected files ({bulkFiles.length}):
-                      </p>
-                      {bulkFiles.map((file, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                          </svg>
-                          <span>{file.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    disabled={uploading}
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setUploadType(null);
-                    }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    disabled={uploading}
-                    type="submit"
-                    className="px-6 py-2 flex flex-row gap-1 justify-between items-center bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
-                  >
-                    {uploading ? (
                       <svg
-                        className="animate-spin h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-12 h-12 text-gray-400"
                         fill="none"
+                        stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
                         <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
+                        />
                       </svg>
-                    ) : null}
-                    Save
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+                      <span className="text-sm font-semibold text-gray-700">
+                        {uploadFile ? uploadFile.name : 'Click to select file'}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        (.docx only)
+                      </span>
+                    </label>
+                  </div>
 
-        {/* Add/Edit Modal (for editing existing capstones) */}
-        {isModalOpen && !uploadType && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={handleModalClose}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {formData.id ? 'Edit' : 'Add'} Capstone Project
-                </h2>
-                <button
-                  onClick={handleModalClose}
-                  disabled={hasInputData()}
-                  className={`text-gray-400 hover:text-gray-600 transition-colors ${
-                    hasInputData() ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsUploadModalOpen(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUploadMode('manual');
+                        setIsEditMode(false);
+                      }}
+                      className="flex-1 px-4 py-2 border border-indigo-300 text-indigo-600 rounded-lg hover:bg-indigo-50 font-medium"
+                    >
+                      Manual Entry
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!uploadFile || formSubmitting}
+                      className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50"
+                    >
+                      {formSubmitting ? 'Uploading...' : 'Upload'}
+                    </button>
+                  </div>
+                </form>
               </div>
+            </div>
+          )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {formData.id && (
-                  <input type="hidden" name="id" value={formData.id} />
+          {/* Edit/Verify Modal */}
+          {(isModalOpen || (isUploadModalOpen && uploadMode === 'manual')) && (
+            <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 my-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                  {isEditMode ? 'Edit Capstone' : 'Create Capstone'}
+                </h2>
+
+                {processingProgress > 0 && processingProgress < 100 && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-gray-700">
+                        Processing capstone...
+                      </p>
+                      <p className="text-sm font-medium text-gray-700">
+                        {processingProgress}%
+                      </p>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${processingProgress}%` }}
+                      />
+                    </div>
+                  </div>
                 )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    required
-                  />
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Author <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="authors"
-                    value={
-                      Array.isArray(formData.authors)
-                        ? formData.authors.join(', ')
-                        : formData.authors
-                    }
-                    onChange={(e) =>
-                      setFormData({ ...formData, authors: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Surname et al."
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <form onSubmit={handlePublishCapstone} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Keywords <span className="text-red-500">*</span>
+                      Title
                     </label>
                     <input
-                      name="keywords"
-                      value={
-                        Array.isArray(formData.keywords)
-                          ? formData.keywords.join(', ')
-                          : formData.keywords
-                      }
-                      onChange={(e) =>
-                        setFormData({ ...formData, keywords: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Year <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      name="year"
                       type="text"
-                      value={formData.year}
-                      onChange={(e) =>
-                        setFormData({ ...formData, year: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="2021"
+                      name="title"
+                      value={formData.title}
+                      onChange={handleFormChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       required
                     />
                   </div>
-                </div>
 
-                {/* File Upload */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Abstract <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Authors
+                    </label>
+                    <div className="space-y-2">
+                      {Array.isArray(formData.authors) &&
+                        formData.authors.map((author, index) => (
+                          <div key={index} className="flex gap-2">
+                            <input
+                              type="text"
+                              value={author}
+                              onChange={(e) =>
+                                updateAuthor(index, e.target.value)
+                              }
+                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              placeholder={`Author ${index + 1}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeAuthor(index)}
+                              className="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      <button
+                        type="button"
+                        onClick={addAuthor}
+                        className="w-full px-4 py-2 border border-dashed border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition"
+                      >
+                        + Add Author
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Adviser
+                      </label>
+                      <input
+                        type="text"
+                        name="adviser"
+                        value={formData.adviser}
+                        onChange={handleFormChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Year
+                      </label>
+                      <input
+                        type="text"
+                        name="year"
+                        value={formData.year}
+                        onChange={handleFormChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Keywords
+                    </label>
+                    <div className="space-y-2">
+                      {Array.isArray(formData.keywords) &&
+                        formData.keywords.map((keyword, index) => (
+                          <div key={index} className="flex gap-2">
+                            <input
+                              type="text"
+                              value={keyword}
+                              onChange={(e) =>
+                                updateKeyword(index, e.target.value)
+                              }
+                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              placeholder={`Keyword ${index + 1}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeKeyword(index)}
+                              className="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      <button
+                        type="button"
+                        onClick={addKeyword}
+                        className="w-full px-4 py-2 border border-dashed border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition"
+                      >
+                        + Add Keyword
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category
+                    </label>
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={handleFormChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      required
+                    >
+                      <option value="">Select Category</option>
+                      <option value="AI">Artificial Intelligence</option>
+                      <option value="Web">Web Development</option>
+                      <option value="Mobile">Mobile Development</option>
+                      <option value="Security">Security</option>
+                      <option value="Database">Database</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Note
+                    </label>
+                    <textarea
+                      name="note"
+                      value={formData.note}
+                      onChange={handleFormChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      rows="2"
+                      placeholder="Add any additional notes or comments"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Abstract
+                    </label>
                     <textarea
                       name="abstract"
                       value={formData.abstract}
-                      onChange={(e) =>
-                        setFormData({ ...formData, abstract: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="2021"
-                      rows="6"
-                      required
-                    ></textarea>
+                      onChange={handleFormChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      rows="4"
+                    />
                   </div>
-                </div>
 
-                <div className="flex justify-end gap-3 pt-4">
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        setIsUploadModalOpen(false);
+                        setUploadMode('file');
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={formSubmitting}
+                      className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50"
+                    >
+                      {formSubmitting
+                        ? 'Processing...'
+                        : isEditMode
+                        ? 'Update'
+                        : 'Publish'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {isDeleteModalOpen && deleteItem && (
+            <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  Delete Capstone
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to delete "{deleteItem.title}"? This
+                  action cannot be undone.
+                </p>
+
+                <div className="flex gap-3">
                   <button
-                    type="button"
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setUploadType(null);
-                    }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setIsDeleteModalOpen(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
                   >
                     Cancel
                   </button>
                   <button
-                    type="submit"
-                    className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+                    onClick={handleConfirmDelete}
+                    disabled={formSubmitting}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50"
                   >
-                    {formData.id ? 'Update' : 'Add'} Project
+                    {formSubmitting ? 'Deleting...' : 'Delete'}
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Logout Confirmation Modal */}
-        {isLogoutModalOpen && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={() => setIsLogoutModalOpen(false)}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
-                  <svg
-                    className="w-8 h-8 text-purple-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          {/* Publish Modal */}
+          {isPublishModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-8 max-h-[90vh] overflow-y-auto">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Approve Capstone
+                </h2>
+                <p className="text-gray-600 mb-6">{publishData.title}</p>
+
+                {showSuccessModal && (
+                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-green-800">{modalMessage}</p>
+                  </div>
+                )}
+                {showErrorModal && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-800">{modalMessage}</p>
+                  </div>
+                )}
+
+                {processingProgress > 0 && (
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Approving...
+                      </span>
+                      <p className="text-sm font-medium text-gray-700">
+                        {processingProgress}%
+                      </p>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${processingProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmitPublish} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Keywords
+                    </label>
+                    <div className="space-y-2">
+                      {Array.isArray(publishData.keywords) &&
+                        publishData.keywords.map((keyword, index) => (
+                          <div key={index} className="flex gap-2">
+                            <input
+                              type="text"
+                              value={keyword}
+                              onChange={(e) =>
+                                updatePublishKeyword(index, e.target.value)
+                              }
+                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              placeholder={`Keyword ${index + 1}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removePublishKeyword(index)}
+                              className="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      <button
+                        type="button"
+                        onClick={addPublishKeyword}
+                        className="w-full px-4 py-2 border border-dashed border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition"
+                      >
+                        + Add Keyword
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category
+                    </label>
+                    <select
+                      name="category"
+                      value={publishData.category}
+                      onChange={handlePublishFormChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      required
+                    >
+                      <option value="">Select Category</option>
+                      <option value="AI">Artificial Intelligence</option>
+                      <option value="Web">Web Development</option>
+                      <option value="Mobile">Mobile Development</option>
+                      <option value="Security">Security</option>
+                      <option value="Database">Database</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Note (Optional)
+                    </label>
+                    <textarea
+                      name="note"
+                      value={publishData.note}
+                      onChange={handlePublishFormChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      rows="3"
+                      placeholder="Add any additional notes or comments"
                     />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 text-center mb-2">
-                Confirm Logout
-              </h2>
-              <p className="text-gray-600 text-center mb-6">
-                Are you sure you want to logout?
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setIsLogoutModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setIsLoggingOut(true);
-                    setIsLogoutModalOpen(false);
-                    setTimeout(() => {
-                      navigate('/');
-                    }, 1500);
-                  }}
-                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                >
-                  Logout
-                </button>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPublishModalOpen(false);
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={formSubmitting}
+                      className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50"
+                    >
+                      {formSubmitting ? 'Approving...' : 'Approve'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Success Modal */}
-        {showSuccessModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={() => setShowSuccessModal(false)}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
-                  <svg
-                    className="w-8 h-8 text-purple-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
+          {/* Revert Modal */}
+          {isRevertModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-8 max-h-[90vh] overflow-y-auto">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Revert to Pending
+                </h2>
+                <p className="text-gray-600 mb-6">{revertData.title}</p>
+
+                {showSuccessModal && (
+                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-green-800">{modalMessage}</p>
+                  </div>
+                )}
+                {showErrorModal && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-800">{modalMessage}</p>
+                  </div>
+                )}
+
+                {processingProgress > 0 && (
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Reverting...
+                      </span>
+                      <p className="text-sm font-medium text-gray-700">
+                        {processingProgress}%
+                      </p>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-orange-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${processingProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmitRevert} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Note (Optional)
+                    </label>
+                    <textarea
+                      name="note"
+                      value={revertData.note}
+                      onChange={handleRevertFormChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      rows="4"
+                      placeholder="Add reason for reverting to pending status"
                     />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 text-center mb-2">
-                Success
-              </h2>
-              <p className="text-gray-600 text-center mb-6">{modalMessage}</p>
-              <button
-                onClick={() => setShowSuccessModal(false)}
-                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
+                  </div>
 
-        {/* Error Modal */}
-        {showErrorModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={() => setShowErrorModal(false)}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
-                  <svg
-                    className="w-8 h-8 text-purple-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRevertModalOpen(false);
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={formSubmitting}
+                      className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium disabled:opacity-50"
+                    >
+                      {formSubmitting ? 'Reverting...' : 'Revert to Pending'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {isRejectModalOpen && (
+            <div className="fixed inset-0 z-50 bg-gray-600/50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-8 max-h-[90vh] overflow-y-auto">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Reject Capstone
+                </h2>
+                <p className="text-gray-600 mb-6">{rejectData.title}</p>
+
+                {showSuccessModal && (
+                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-green-800">{modalMessage}</p>
+                  </div>
+                )}
+                {showErrorModal && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-800">{modalMessage}</p>
+                  </div>
+                )}
+
+                {processingProgress > 0 && (
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Rejecting...
+                      </span>
+                      <p className="text-sm font-medium text-gray-700">
+                        {processingProgress}%
+                      </p>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-red-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${processingProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmitReject} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Reason for Rejection (Optional)
+                    </label>
+                    <textarea
+                      name="note"
+                      value={rejectData.note}
+                      onChange={handleRejectFormChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      rows="4"
+                      placeholder="Provide feedback on why this capstone is being rejected"
                     />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 text-center mb-2">
-                Error
-              </h2>
-              <p className="text-gray-600 text-center mb-6">{modalMessage}</p>
-              <button
-                onClick={() => setShowErrorModal(false)}
-                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
+                  </div>
 
-        {/* Delete Confirmation Modal */}
-        {isDeleteModalOpen && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-            onClick={() => {
-              setIsDeleteModalOpen(false);
-              setDeleteItem(null);
-            }}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center border-2 border-red-300">
-                  <svg
-                    className="w-8 h-8 text-red-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">
-                Confirm Delete
-              </h2>
-              <p className="text-gray-600 text-center mb-6">
-                Are you sure you want to delete{' '}
-                <strong>{deleteItem?.title}</strong>? This action cannot be
-                undone.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setIsDeleteModalOpen(false);
-                    setDeleteItem(null);
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmDelete}
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                >
-                  Delete
-                </button>
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRejectModalOpen(false);
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={formSubmitting}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50"
+                    >
+                      {formSubmitting ? 'Rejecting...' : 'Reject Capstone'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Logout Loading Overlay */}
-        {isLoggingOut && (
-          <div className="fixed inset-0 z-[60] min-h-screen flex items-center justify-center">
-            <div className="absolute inset-0 bg-white" aria-hidden />
-            <div
-              className="absolute inset-0 opacity-100"
-              style={{
-                backgroundImage: `url(${V9Gradient})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-              }}
-              aria-hidden
-            />
-            <div className="relative z-10 text-center">
-              <div className="inline-flex flex-col items-center gap-4">
-                <div className="relative">
-                  <svg
-                    className="animate-spin h-12 w-12 text-purple-600"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <div className="absolute inset-0 rounded-full bg-purple-600/20 blur-xl"></div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent block">
-                    Logging out...
-                  </span>
-                  <span className="text-sm text-gray-500 block">
-                    Redirecting to landing page
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </main>
+
+      {/* Logout Confirmation Modal */}
+      {isLogoutModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          onClick={() => setIsLogoutModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-purple-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 text-center mb-2">
+              Confirm Logout
+            </h2>
+            <p className="text-gray-600 text-center mb-6">
+              Are you sure you want to logout?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsLogoutModalOpen(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setIsLoggingOut(true);
+                  setIsLogoutModalOpen(false);
+                  setTimeout(() => {
+                    logout();
+                    navigate('/');
+                  }, 1500);
+                }}
+                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

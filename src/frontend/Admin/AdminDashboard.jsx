@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import V9Gradient from '../../assets/images/V9.svg';
 import { useAuth } from '../../AuthContext';
+import { apiClient } from '../../api/client';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { logout } = useAuth();
+  const [dashboardData, setDashboardData] = useState(null);
+  const { logout, user } = useAuth();
 
   useEffect(() => {
     // Add shimmer animation styles
@@ -24,44 +26,81 @@ export default function AdminDashboard() {
     `;
     document.head.appendChild(style);
 
-    // Simulate data loading
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
+    // Fetch statistics data
+    const fetchStatistics = async () => {
+      try {
+        const response = await apiClient.getDashboardStatistics();
+        if (response.status === 'success') {
+          setDashboardData(response);
+        }
+      } catch (error) {
+        console.error('Failed to fetch statistics:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStatistics();
 
     return () => {
-      clearTimeout(timer);
       document.head.removeChild(style);
     };
   }, []);
 
   // Sample data
-  const summaryCards = [
-    {
-      title: 'Total Papers',
-      value: '45',
-      description: '3420 searches this month',
-      icon: 'document',
-    },
-    {
-      title: 'Total Views',
-      value: '3874',
-      description: '3420 searches this month',
-      icon: 'eye',
-    },
-    {
-      title: 'Total Search',
-      value: '45',
-      description: '3420 searches this month',
-      icon: 'search',
-    },
-    {
-      title: 'Recently Uploaded',
-      value: '45',
-      description: '3420 searches this month',
-      icon: 'user',
-    },
-  ];
+  const summaryCards = dashboardData
+    ? [
+        {
+          title: 'Total Papers',
+          value: dashboardData.cards.total_capstones.toString(),
+          description: 'Total capstone projects',
+          icon: 'document',
+        },
+        {
+          title: 'Total Views',
+          value: dashboardData.cards.total_views.toString(),
+          description: 'Total views this period',
+          icon: 'eye',
+        },
+        {
+          title: 'Total Search',
+          value: dashboardData.cards.total_search.toString(),
+          description: 'Total searches performed',
+          icon: 'search',
+        },
+        {
+          title: 'Recently Uploaded',
+          value: dashboardData.cards.recent_capstones_total.toString(),
+          description: 'Recently uploaded capstones',
+          icon: 'user',
+        },
+      ]
+    : [
+        {
+          title: 'Total Papers',
+          value: '0',
+          description: 'Loading...',
+          icon: 'document',
+        },
+        {
+          title: 'Total Views',
+          value: '0',
+          description: 'Loading...',
+          icon: 'eye',
+        },
+        {
+          title: 'Total Search',
+          value: '0',
+          description: 'Loading...',
+          icon: 'search',
+        },
+        {
+          title: 'Recently Uploaded',
+          value: '0',
+          description: 'Loading...',
+          icon: 'user',
+        },
+      ];
 
   const getIcon = (iconType) => {
     switch (iconType) {
@@ -140,13 +179,13 @@ export default function AdminDashboard() {
     }
   };
 
-  const mostSearched = [
-    { name: 'Machine Learning', value: 250000 },
-    { name: 'Artificial Intelligence', value: 8000 },
-    { name: 'Cyber Security', value: 2500 },
-    { name: 'Networking', value: 1800 },
-    { name: 'Information Security', value: 1200 },
-  ];
+  const mostSearched =
+    dashboardData && dashboardData.most_searched
+      ? Object.entries(dashboardData.most_searched).map(([name, value]) => ({
+          name,
+          value,
+        }))
+      : [];
 
   const viewsGrowth = [
     { month: 'Jan', value: 8000 },
@@ -157,21 +196,46 @@ export default function AdminDashboard() {
     { month: 'June', value: 180000 },
   ];
 
-  const mostViewed = [
-    {
-      title:
-        'AgriLearn: A web-based Production Planning System for High Value Crops',
-      authors: 'Alipante et. al.',
-      views: 1421,
-    },
+  const mostViewed =
+    dashboardData && dashboardData.most_viewed
+      ? Object.entries(dashboardData.most_viewed).map(([title, views]) => ({
+          title,
+          views,
+          authors: '',
+        }))
+      : [];
+
+  const categoryColors = [
+    'bg-blue-500',
+    'bg-orange-500',
+    'bg-yellow-400',
+    'bg-green-500',
+    'bg-red-500',
+    'bg-purple-500',
+    'bg-pink-500',
+    'bg-indigo-500',
   ];
 
-  const categories = [
-    { name: 'Web App', percentage: 33.3, color: 'bg-blue-500' },
-    { name: 'Mobile App', percentage: 22.2, color: 'bg-orange-500' },
-    { name: 'Networking', percentage: 22.2, color: 'bg-yellow-400' },
-    { name: 'IoT', percentage: 22.2, color: 'bg-green-500' },
-  ];
+  const categories =
+    dashboardData && dashboardData.categories
+      ? (() => {
+          const categoryEntries = Object.entries(dashboardData.categories);
+          const totalCount = categoryEntries.reduce(
+            (sum, [_, count]) => sum + count,
+            0
+          );
+          return categoryEntries.map(([name, count], index) => ({
+            name,
+            percentage: (count / totalCount) * 100,
+            color: categoryColors[index % categoryColors.length],
+          }));
+        })()
+      : [
+          { name: 'Web App', percentage: 33.3, color: 'bg-blue-500' },
+          { name: 'Mobile App', percentage: 22.2, color: 'bg-orange-500' },
+          { name: 'Networking', percentage: 22.2, color: 'bg-yellow-400' },
+          { name: 'IoT', percentage: 22.2, color: 'bg-green-500' },
+        ];
 
   // Skeleton Components with smooth shimmer effect
   const SkeletonShimmer = ({ className = '' }) => (
@@ -353,61 +417,27 @@ export default function AdminDashboard() {
           </svg>
         </div>
 
-        {/* Users/People Icon */}
-        <div
-          onClick={() => navigate('/admin/account-management')}
-          className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors"
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        {/* Users/People Icon - Only show for Admin */}
+        {user?.user?.role === 'admin' && (
+          <div
+            onClick={() => navigate('/admin/account-management')}
+            className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-            />
-          </svg>
-        </div>
-
-        {/* User Settings Icon */}
-        <div className="w-8 h-8 flex items-center justify-center text-white cursor-pointer hover:bg-purple-800 rounded-lg transition-colors relative">
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-            />
-          </svg>
-          <svg
-            className="w-3 h-3 absolute bottom-0 right-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
-        </div>
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+              />
+            </svg>
+          </div>
+        )}
 
         {/* Logout Icon */}
         <div
@@ -485,7 +515,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 gap-6 mb-8">
           {/* Most Searched */}
           {isLoading ? (
             <>
@@ -499,9 +529,6 @@ export default function AdminDashboard() {
                   <h2 className="text-xl font-bold text-gray-900">
                     Most Searched
                   </h2>
-                  <select className="text-gray-500 text-sm bg-gray-100 border border-gray-300 rounded-lg px-3 py-1.5">
-                    <option>This month</option>
-                  </select>
                 </div>
                 <div className="space-y-5">
                   {mostSearched.map((item, index) => {
@@ -537,159 +564,6 @@ export default function AdminDashboard() {
                   <span>1,000,000</span>
                 </div>
               </div>
-
-              {/* Views Growth */}
-              <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Views Growth
-                  </h2>
-                  <select className="text-gray-500 text-sm bg-gray-100 border border-gray-300 rounded-lg px-3 py-1.5">
-                    <option>Monthly</option>
-                  </select>
-                </div>
-                <div className="relative h-64">
-                  <svg
-                    className="w-full h-full"
-                    viewBox="0 0 500 250"
-                    preserveAspectRatio="xMidYMid meet"
-                  >
-                    {/* Grid lines */}
-                    <line
-                      x1="40"
-                      y1="210"
-                      x2="480"
-                      y2="210"
-                      stroke="#e5e7eb"
-                      strokeWidth="1"
-                    />
-                    <line
-                      x1="40"
-                      y1="160"
-                      x2="480"
-                      y2="160"
-                      stroke="#e5e7eb"
-                      strokeWidth="1"
-                    />
-                    <line
-                      x1="40"
-                      y1="110"
-                      x2="480"
-                      y2="110"
-                      stroke="#e5e7eb"
-                      strokeWidth="1"
-                    />
-                    <line
-                      x1="40"
-                      y1="60"
-                      x2="480"
-                      y2="60"
-                      stroke="#e5e7eb"
-                      strokeWidth="1"
-                    />
-                    <line
-                      x1="40"
-                      y1="10"
-                      x2="480"
-                      y2="10"
-                      stroke="#e5e7eb"
-                      strokeWidth="1"
-                    />
-
-                    {/* Y-axis labels */}
-                    <text
-                      x="35"
-                      y="215"
-                      fill="#6b7280"
-                      fontSize="12"
-                      textAnchor="end"
-                    >
-                      0
-                    </text>
-                    <text
-                      x="35"
-                      y="165"
-                      fill="#6b7280"
-                      fontSize="12"
-                      textAnchor="end"
-                    >
-                      50k
-                    </text>
-                    <text
-                      x="35"
-                      y="115"
-                      fill="#6b7280"
-                      fontSize="12"
-                      textAnchor="end"
-                    >
-                      100k
-                    </text>
-                    <text
-                      x="35"
-                      y="65"
-                      fill="#6b7280"
-                      fontSize="12"
-                      textAnchor="end"
-                    >
-                      150k
-                    </text>
-                    <text
-                      x="35"
-                      y="15"
-                      fill="#6b7280"
-                      fontSize="12"
-                      textAnchor="end"
-                    >
-                      200k
-                    </text>
-
-                    {/* Calculate chart points */}
-                    {(() => {
-                      const points = viewsGrowth.map((point, index) => {
-                        const x = 40 + index * 80 + 20;
-                        const maxValue = 200000;
-                        const y = 210 - (point.value / maxValue) * 200;
-                        return { x, y, month: point.month };
-                      });
-
-                      // Create polyline for the line chart
-                      const pathData = points
-                        .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
-                        .join(' ');
-
-                      return (
-                        <>
-                          <path
-                            d={pathData}
-                            fill="none"
-                            stroke="#9333ea"
-                            strokeWidth="3"
-                          />
-                          {points.map((point, index) => (
-                            <g key={point.month}>
-                              <circle
-                                cx={point.x}
-                                cy={point.y}
-                                r="5"
-                                fill="#9333ea"
-                              />
-                              <text
-                                x={point.x}
-                                y="230"
-                                fill="#6b7280"
-                                fontSize="12"
-                                textAnchor="middle"
-                              >
-                                {point.month}
-                              </text>
-                            </g>
-                          ))}
-                        </>
-                      );
-                    })()}
-                  </svg>
-                </div>
-              </div>
             </>
           )}
         </div>
@@ -705,11 +579,11 @@ export default function AdminDashboard() {
             </>
           ) : (
             <>
-              <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
-                <h2 className="text-xl font-bold text-gray-900 mb-6">
+              <div className="bg-white rounded-xl p-8 shadow-md border border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900 mb-8">
                   Categories
                 </h2>
-                <div className="flex items-center gap-8">
+                <div className="flex items-center gap-12">
                   <div className="relative w-64 h-64 flex-shrink-0">
                     {(() => {
                       const centerX = 150;
@@ -774,40 +648,46 @@ export default function AdminDashboard() {
                         };
                       };
 
-                      const slices = [
-                        createExplodedSlice(
-                          -90,
-                          29.88,
-                          0,
-                          -25,
-                          '#3b82f6',
-                          '33.3%'
-                        ), // Web App - exploded up more
-                        createExplodedSlice(
-                          29.88,
-                          109.92,
-                          10,
-                          5,
-                          '#f97316',
-                          '22.2%'
-                        ), // Mobile App - slight right
-                        createExplodedSlice(
-                          109.92,
-                          189.84,
-                          0,
-                          10,
-                          '#facc15',
-                          '22.2%'
-                        ), // Networking - down
-                        createExplodedSlice(
-                          189.84,
-                          270,
-                          -10,
-                          5,
-                          '#22c55e',
-                          '22.2%'
-                        ), // IoT - slight left
-                      ];
+                      // Create slices dynamically from categories
+                      const slices = (() => {
+                        const colorMap = {
+                          'bg-blue-500': '#3b82f6',
+                          'bg-orange-500': '#f97316',
+                          'bg-yellow-400': '#facc15',
+                          'bg-green-500': '#22c55e',
+                          'bg-red-500': '#ef4444',
+                          'bg-purple-500': '#a855f7',
+                          'bg-pink-500': '#ec4899',
+                          'bg-indigo-500': '#6366f1',
+                        };
+
+                        let startAngle = -90;
+                        const offsets = [
+                          { x: 0, y: -25 },
+                          { x: 10, y: 5 },
+                          { x: 0, y: 10 },
+                          { x: -10, y: 5 },
+                          { x: 0, y: -15 },
+                          { x: 8, y: -8 },
+                          { x: -8, y: -8 },
+                          { x: 8, y: 8 },
+                        ];
+
+                        return categories.map((cat, idx) => {
+                          const angle = (cat.percentage / 100) * 360;
+                          const endAngle = startAngle + angle;
+                          const slice = createExplodedSlice(
+                            startAngle,
+                            endAngle,
+                            offsets[idx % offsets.length].x,
+                            offsets[idx % offsets.length].y,
+                            colorMap[cat.color] || '#3b82f6',
+                            `${cat.percentage.toFixed(1)}%`
+                          );
+                          startAngle = endAngle;
+                          return slice;
+                        });
+                      })();
 
                       return (
                         <svg
@@ -994,13 +874,13 @@ export default function AdminDashboard() {
                       );
                     })()}
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {categories.map((cat, index) => (
-                      <div key={index} className="flex items-center gap-2">
+                      <div key={index} className="flex items-center gap-3">
                         <div
-                          className={`w-3 h-3 rounded-full ${cat.color}`}
+                          className={`w-4 h-4 rounded-full flex-shrink-0 ${cat.color}`}
                         ></div>
-                        <span className="text-sm text-gray-700">
+                        <span className="text-sm font-medium text-gray-700">
                           {cat.name}
                         </span>
                       </div>
@@ -1010,34 +890,32 @@ export default function AdminDashboard() {
               </div>
 
               {/* Most Viewed */}
-              <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
-                <div className="flex justify-between items-center mb-6">
+              <div className="bg-white rounded-xl p-8 shadow-md border border-gray-200">
+                <div className="flex justify-between items-center mb-8">
                   <h2 className="text-xl font-bold text-gray-900">
                     Most Viewed
                   </h2>
-                  <select className="text-gray-500 text-sm bg-gray-100 border border-gray-300 rounded-lg px-3 py-1.5">
-                    <option>This month</option>
-                  </select>
                 </div>
                 <div className="space-y-4">
-                  {[1, 2, 3, 4, 5].map((num) => (
-                    <div key={num} className="flex items-start gap-4">
-                      <div className="w-10 h-10 bg-purple-700 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
-                        {num}
+                  {mostViewed.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-4 p-3 rounded-lg hover:bg-purple-50 transition"
+                    >
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-700 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm">
+                        {index + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 mb-1">
-                          {mostViewed[0].title}
+                        <p className="text-sm font-semibold text-gray-900 mb-1 line-clamp-2">
+                          {item.title}
                         </p>
-                        <p className="text-xs text-gray-500">
-                          {mostViewed[0].authors}
-                        </p>
+                        <p className="text-xs text-gray-500">{item.authors}</p>
                       </div>
                       <div className="flex-shrink-0 text-right">
                         <p className="text-sm font-bold text-purple-700">
-                          {mostViewed[0].views}
+                          {item.views}
                         </p>
-                        <p className="text-xs text-purple-500">Views</p>
+                        <p className="text-xs text-gray-500">Views</p>
                       </div>
                     </div>
                   ))}
@@ -1045,34 +923,31 @@ export default function AdminDashboard() {
               </div>
 
               {/* Most Searched */}
-              <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
-                <div className="flex justify-between items-center mb-6">
+              <div className="bg-white rounded-xl p-8 shadow-md border border-gray-200">
+                <div className="flex justify-between items-center mb-8">
                   <h2 className="text-xl font-bold text-gray-900">
                     Most Searched
                   </h2>
-                  <select className="text-gray-500 text-sm bg-gray-100 border border-gray-300 rounded-lg px-3 py-1.5">
-                    <option>This month</option>
-                  </select>
                 </div>
                 <div className="space-y-4">
-                  {[1, 2, 3, 4, 5].map((num) => (
-                    <div key={num} className="flex items-start gap-4">
-                      <div className="w-10 h-10 bg-purple-700 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
-                        {num}
+                  {mostSearched.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-4 p-3 rounded-lg hover:bg-purple-50 transition"
+                    >
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-700 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm">
+                        {index + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 mb-1">
-                          {mostViewed[0].title}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {mostViewed[0].authors}
+                        <p className="text-sm font-semibold text-gray-900 mb-1 line-clamp-2">
+                          {item.name}
                         </p>
                       </div>
                       <div className="flex-shrink-0 text-right">
                         <p className="text-sm font-bold text-purple-700">
-                          {mostViewed[0].views}
+                          {item.value}
                         </p>
-                        <p className="text-xs text-purple-500">Views</p>
+                        <p className="text-xs text-gray-500">Searches</p>
                       </div>
                     </div>
                   ))}
@@ -1086,7 +961,7 @@ export default function AdminDashboard() {
       {/* Logout Confirmation Modal */}
       {isLogoutModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-600/30 backdrop-blur-sm"
           onClick={() => setIsLogoutModalOpen(false)}
         >
           <div
